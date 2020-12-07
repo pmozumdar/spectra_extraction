@@ -1,3 +1,3 @@
-  # Velocity Dispersion
+  # Spectra Extraction
 
-This repository will store all the codes and notebook files related to estimation of redshifts and velocity dispersions of lensing galaxies from 1d spectra. 
+This repository will store all the codes and notebook files related to extraction of 1d spectra from 2d spectra. 
