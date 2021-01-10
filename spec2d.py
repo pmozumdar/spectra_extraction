@@ -126,10 +126,11 @@ class Spec2d(imf.Image):
         self.sigorder = 3
         self.mod0 = None
         self.logwav = logwav
-        # initialize two new variables here
+        # initialize three new variables here
         self.flux = None
         self.spectra = None
         self.hext = hext
+        self.inspec = inspec
 
         """
         Read in the data and call the superclass initialization for useful
@@ -340,8 +341,9 @@ class Spec2d(imf.Image):
             self.data[nanmask] = self['sky2d'].data[nanmask]
 
     # -----------------------------------------------------------------------
-
-    def subtract_sky_2d(self, outfile=None, outsky=None):
+    ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
+    ## generated sky model
+    def subtract_sky_2d(self, outfile=None, outsky=None, use_skymod=True):
         """
         Given the input 2D spectrum, creates a median sky and then subtracts
         it from the input data.  Two outputs are saved: the 2D sky-subtracted
@@ -361,53 +363,91 @@ class Spec2d(imf.Image):
             spaceaxis = 0
         ## adding sky subtraction for pypeit data
         """for pypeit generated 2d spectra """
-        #if hext
+        if use_skymod:
+            print('\npypeit generated sky model will be used for sky'\
+                  'subtraction\n')
+            if self.hext >0 :
+                sky2d_mod = pf.open(self.inspec)[self.hext+2].data
+                sky2d_mod = sky2d_mod[self.ymin:self.ymax, self.xmin:self.xmax]
+            
+                """check whether sky model data empty or not"""
+                if np.max(sky2d_mod) == np.min(sky2d_mod):
+                    print('\nNo data in the sky model')
+                
+                else:
+                    if spaceaxis:
+                        skysub = (self.data - sky2d_mod).T
+                        self['sky2d'] = imf.WcsHDU(sky2d_mod.T, wcsverb=False)    
+                    else:
+                        skysub = self.data - sky2d_mod
+                        self['sky2d'] = imf.WcsHDU(sky2d_mod, wcsverb=False)
+                        
+                    self['skysub'] = imf.WcsHDU(skysub, wcsverb=False) 
+                    plt.figure(figsize=(100.0, 100.0))
+                    self.display(dmode='sky2d', mode='xy')
+                    plt.figure()
+                    
+                    """ Take the median along the spatial direction to make an
+                        estimate of the 1d sky """
+                    pix = np.arange(self.npix)
+                    tmp1d = np.median(sky2d_mod, axis=spaceaxis)
+                    self.sky1d = Spec1d(wav=pix, flux=tmp1d)
+                    
+            """ Clean up """
+            del sky2d_mod, skysub 
+        #change
+        else:    
+            print("\nsky model will be generated from data\n")
+            """ Take the median along the spatial direction to estimate the sky """
+            if self.data.ndim < 2:
+                print('')
+                print('ERROR: subtract_sky needs a 2 dimensional data set')
+                return
+            else:
+                pix = np.arange(self.npix)
+                tmp1d = np.median(self.data, axis=spaceaxis)
+                self.sky1d = Spec1d(wav=pix, flux=tmp1d)
 
-        """ Take the median along the spatial direction to estimate the sky """
-        if self.data.ndim < 2:
-            print('')
-            print('ERROR: subtract_sky needs a 2 dimensional data set')
-            return
-        else:
-            pix = np.arange(self.npix)
-            tmp1d = np.median(self.data, axis=spaceaxis)
-            self.sky1d = Spec1d(wav=pix, flux=tmp1d)
+            """ Turn the 1-dimension sky spectrum into a 2-dimensional form """
+            # sky2d = np.zeros(self.data.shape)
+            # for i in range(self.nspat):
+            #     sky2
+            """
+            data.shape is necessarily [row, cloumn] or [y_pix , x_pix]. When x is 
+            dispersion axis sky1d[flux].shape is equal to column numbers and using
+            np.tile(), which creates rows not columns we get sky2d.shape as 
+            data.shape. However if y is the dispersion axis then sky1d[flux] is 
+            equal to row numbers and np.tile() treats that as column and create rows
+            specified by space axis which is column numbers in this case. So need to
+            transpose for the case when dispersion axis is y to make the shape of 
+            sky2d as equal as data.shape.
+            """
+            if spaceaxis:
+                sky2d = np.tile(self.sky1d['flux'].data, 
+                            (self.data.shape[spaceaxis], 1)).T
+                self['sky2d'] = imf.WcsHDU(sky2d.T, wcsverb=False)
+                #print(sky2d.shape)
+            else:
+                sky2d = np.tile(self.sky1d['flux'].data,
+                            (self.data.shape[spaceaxis], 1))
+                self['sky2d'] = imf.WcsHDU(sky2d, wcsverb=False)
+            
+            plt.figure(figsize=(100.0, 100.0))
+            self.display(dmode='sky2d', mode='xy')
+            plt.figure()
 
-        """ Turn the 1-dimension sky spectrum into a 2-dimensional form """
-        # sky2d = np.zeros(self.data.shape)
-        # for i in range(self.nspat):
-        #     sky2
-        """
-        data.shape is necessarily [row, cloumn] or [y_pix , x_pix]. When x is 
-        dispersion axis sky1d[flux].shape is equal to column numbers and using
-        np.tile(), which creates rows not columns we get sky2d.shape as 
-        data.shape. However if y is the dispersion axis then sky1d[flux] is 
-        equal to row numbers and np.tile() treats that as column and create rows
-        specified by space axis which is column numbers in this case. So need to
-        transpose for the case when dispersion axis is y to make the shape of 
-        sky2d as equal as data.shape.
-        """
-        if spaceaxis:
-            sky2d = np.tile(self.sky1d['flux'].data, 
-                        (self.data.shape[spaceaxis], 1)).T
-            #print(sky2d.shape)
-        else:
-            sky2d = np.tile(self.sky1d['flux'].data,
-                        (self.data.shape[spaceaxis], 1))
-        self['sky2d'] = imf.WcsHDU(sky2d, wcsverb=False)
+            """ Subtract the sky from the data """
+            # we need to transpose 'skysub' if 'y' is the dispersion axis so 
+            # that in the plotted sky subtracted spectra the dispersion axis stays along
+            # the image x axis.
+            if spaceaxis:
+                skysub = (self.data - sky2d).T
+            else:
+                skysub = self.data - sky2d
+            self['skysub'] = imf.WcsHDU(skysub, wcsverb=False)
 
-        """ Subtract the sky from the data """
-        # we need to transpose 'skysub' if 'y' is the dispersion axis so 
-        # that in the plotted sky subtracted spectra the dispersion axis stays along
-        # the image x axis.
-        if spaceaxis:
-            skysub = (self.data - sky2d).T
-        else:
-            skysub = self.data - sky2d
-        self['skysub'] = imf.WcsHDU(skysub, wcsverb=False)
-
-        """ Clean up """
-        del sky2d, skysub
+            """ Clean up """
+            del sky2d, skysub 
 
     # -----------------------------------------------------------------------
 
@@ -459,8 +499,8 @@ class Spec2d(imf.Image):
         del skysub, ssrms, tmpsub, szapped
 
     # -----------------------------------------------------------------------
-
-    def display_spec(self, doskysub=True):
+    ## adding new parameter 'use_skymod' for the function subtract_sky_2d
+    def display_spec(self, doskysub=True, use_skymod=True):
         """
         Displays the two-dimensional spectrum and also, by default, the
         same spectrum after a crude sky subtraction.  To show only the
@@ -476,8 +516,9 @@ class Spec2d(imf.Image):
         if doskysub:
 
             """ Subtract the sky if this has not already been done """
+            ##change
             if 'skysub' not in self.keys():
-                self.subtract_sky_2d()
+                self.subtract_sky_2d(use_skymod=use_skymod)
 
             """ Set the subplot designation for the main spectrum """
             pltnum_main = 411
