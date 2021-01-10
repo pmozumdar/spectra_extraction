@@ -342,8 +342,8 @@ class Spec2d(imf.Image):
 
     # -----------------------------------------------------------------------
     ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
-    ## generated sky model
-    def subtract_sky_2d(self, outfile=None, outsky=None, use_skymod=True):
+    ## generated sky model. By default it is 'False'.
+    def subtract_sky_2d(self, outfile=None, outsky=None, use_skymod=False):
         """
         Given the input 2D spectrum, creates a median sky and then subtracts
         it from the input data.  Two outputs are saved: the 2D sky-subtracted
@@ -500,7 +500,7 @@ class Spec2d(imf.Image):
 
     # -----------------------------------------------------------------------
     ## adding new parameter 'use_skymod' for the function subtract_sky_2d
-    def display_spec(self, doskysub=True, use_skymod=True):
+    def display_spec(self, doskysub=True, use_skymod=False):
         """
         Displays the two-dimensional spectrum and also, by default, the
         same spectrum after a crude sky subtraction.  To show only the
