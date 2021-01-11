@@ -923,6 +923,8 @@ class Spec2d(imf.Image):
         return mod
 
 # -----------------------------------------------------------------------
+    # Now this function plots the refined model. But earlier it was plotting
+    # the initial model. Need to put this in specim.
     def refined_model(self, mod, profile=None, verbose=True):
         
         if profile is None:
@@ -1085,8 +1087,13 @@ class Spec2d(imf.Image):
         an initial model via 'self' method which is initialized while creating 
         an initial model either using initial_model() or locate_trace().
         """
-        for param in self.mod0.param_names:
-            partab[param] = np.zeros(xstep.size)
+        #change
+        if isinstance(mod0, list):
+            for param in mod0[0].param_names:
+                partab[param] = np.zeros(xstep.size)
+        else:
+            for param in mod0.param_names:
+                partab[param] = np.zeros(xstep.size)
         partab['flux'] = np.zeros(xstep.size)
         covar = []
    
@@ -1161,7 +1168,6 @@ class Spec2d(imf.Image):
         to the trace parameters
         """
         x0 = coarsepars['x']
-        print(x0)
         if fitrange is None:
             xmask = np.ones(len(x0), dtype=bool)
             fittab = coarsepars.copy()
@@ -1805,18 +1811,18 @@ class Spec2d(imf.Image):
             for i, mod in enumerate(mod0):
                 if isinstance(mod, models.Gaussian1D):
                     prof_cent = np.round(parm_tab['mean_%d' % i])
-                    wav_cent = np.zeros(len(self.npix))
+                    wav_cent = np.zeros(self.npix)
                     
-                    for j in range(len(self.npix)):
+                    for j in range(self.npix):
                         wav_cent[j] = wavim[j][int(prof_cent[j])]
                         
                     wav['gaussian_%d' %i] = wav_cent
                     
                 elif isinstance(mod, models.Moffat1D):
                     prof_cent = np.round(parm_tab['x_0_%d' % i])
-                    wav_cent = np.zeros(len(self.npix))
+                    wav_cent = np.zeros(self.npix)
                     
-                    for j in range(len(self.npix)):
+                    for j in range(self.npix):
                         wav_cent[j] = wavim[j][int(prof_cent[j])]
                         
                     wav['moffat_%d' %i] = wav_cent
@@ -2068,7 +2074,11 @@ class Spec2d(imf.Image):
             if verbose:
                 print('')
                 print('Plotting the spectrum')
-            if self.has_cdmatx:
+                
+            #change to accomodate wavelength extraction from pypeit 2d wave image
+            if use_wavim:
+                xlab = 'Wavelength'
+            elif self.has_cdmatx:
                 xlab = 'Wavelength'
             else:
                 xlab = 'Pixel number along the %s axis' % self.dispaxis
