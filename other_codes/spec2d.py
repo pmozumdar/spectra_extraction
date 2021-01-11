@@ -365,7 +365,7 @@ class Spec2d(imf.Image):
         """for pypeit generated 2d spectra """
         if use_skymod:
             print('\npypeit generated sky model will be used for sky'\
-                  'subtraction\n')
+                  ' subtraction\n')
             if self.hext >0 :
                 sky2d_mod = pf.open(self.inspec)[self.hext+2].data
                 sky2d_mod = sky2d_mod[self.ymin:self.ymax, self.xmin:self.xmax]
@@ -1671,8 +1671,10 @@ class Spec2d(imf.Image):
             self.sig = self.profmods[0].stddev.value
 
     # -----------------------------------------------------------------------
-     
-    def _extract_modelfit(self, usevar=True, extrange=None, verbose=True):
+    #adding new parameter 'use_wavim' to give the option to use pypeit
+    #generated 2d wave image while calculating 1d wavelength
+    def _extract_modelfit(self, usevar=True, extrange=None, verbose=True,
+                          use_wavim=False):
         """
 
         Does an extraction by fitting a n-component model + background to
@@ -1784,9 +1786,42 @@ class Spec2d(imf.Image):
                                       (gamma(fitpars['alpha_%d' % i] - 0.5) /   
                                        gamma(fitpars['alpha_%d' % i])) )
                     
-        # need to calibrate wavelength from pixel info
+        # need to calibrate wavelength from pixel info /2d wav image
         """ Get the wavelength/pixel vector """
-        self.get_wavelength()
+        # new change (may be temporary)
+        
+        """Use pypeit generated 2d wav image if selected. Currently the corresponding
+           wavelength in the 2d wave image for the spatial pixel location of the centre
+           of the profile (mean in case of Gaussian and x_0 for Moffat) is being
+           used while calculatig wavelength for 1d spectra."""
+        
+        if use_wavim :
+            wavim = pf.open(self.inspec)[self.hext + 7].data
+            
+            """Table to store 1d wavelength from pypeit generated 2d waveimage."""
+            wav = Table()
+            
+            for i, mod in enumerate(mod0):
+                if isinstance(mod, models.Gaussian1D):
+                    prof_cent = np.round(parm_tab['mean_%d' % i])
+                    wav_cent = np.zeros(len(self.npix))
+                    
+                    for j in range(len(self.npix)):
+                        wav_cent[j] = wavim[j][int(prof_cent[j])]
+                        
+                    wav['gaussian_%d' %i] = wav_cent
+                    
+                elif isinstance(mod, models.Moffat1D):
+                    prof_cent = np.round(parm_tab['x_0_%d' % i])
+                    wav_cent = np.zeros(len(self.npix))
+                    
+                    for j in range(len(self.npix)):
+                        wav_cent[j] = wavim[j][int(prof_cent[j])]
+                        
+                    wav['moffat_%d' %i] = wav_cent
+        
+        else:    
+            self.get_wavelength()
       
         # need to calculate variance
         
@@ -1799,7 +1834,13 @@ class Spec2d(imf.Image):
         
         for i, p in enumerate(flux.columns):
             title = 'Extracted Spectrum from ' + p
-            spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p])))
+            
+            #new change to incorporate wavelength extraction from pypeit generated
+            #wave image
+            if use_wavim:
+                spectra.append((title, Spec1d(wav=wav[p], flux=flux[p])))
+            else:
+                spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p])))
             
         # adding these two lines so that list named 'spectra' and table
         # named 'flux' is accessible from the function 'extract'.
@@ -1996,11 +2037,14 @@ class Spec2d(imf.Image):
         del(invar, flux, var, bkgd, owav, oflux, ovar, sky)
 
     # -----------------------------------------------------------------------
-
+    #adding new parameter 'use_wavim' to give the option to use pypeit
+    #generated 2d wave image while calculating 1d wavelength during modefit
+    #extraction method.
+    
     def extract(self, method='optimal', weight='gauss', extrange=None,
                 sky=None, usevar=True, gain=1.0, rdnoise=0.0,
                 doplot=True, do_subplot=True, outfile=None,
-                outformat='text', verbose=True, **kwargs):
+                outformat='text', verbose=True, use_wavim=False, **kwargs):
         """
         Second step in reduction process.
 
@@ -2012,7 +2056,8 @@ class Spec2d(imf.Image):
 
         """ Extract the spectrum """
         if method == 'modelfit':
-            self._extract_modelfit(usevar=usevar, extrange=extrange)
+            self._extract_modelfit(usevar=usevar, extrange=extrange,
+                                   use_wavim=use_wavim)
         else:
             self._extract_horne(weight, gain, rdnoise, extrange=extrange,
                                 verbose=verbose)
