@@ -375,18 +375,25 @@ class Spec2d(imf.Image):
                     print('\nNo data in the sky model')
                 
                 else:
+                    skysub = self.data - sky2d_mod
+                    
+                    ## we actually wasn't using sky subtracted data before..we 
+                    ## were just plotting it
+                    self.data_org = self.data
+                    self.data = skysub
+                    print("\nFrom this point sky subtracted data will be used")
+                    
                     if spaceaxis:
-                        skysub = (self.data - sky2d_mod).T
+                        self['skysub'] = imf.WcsHDU(skysub.T, wcsverb=False)
                         self['sky2d'] = imf.WcsHDU(sky2d_mod.T, wcsverb=False)    
                     else:
-                        skysub = self.data - sky2d_mod
+                        self['skysub'] = imf.WcsHDU(skysub, wcsverb=False)
                         self['sky2d'] = imf.WcsHDU(sky2d_mod, wcsverb=False)
                         
-                    self['skysub'] = imf.WcsHDU(skysub, wcsverb=False) 
                     plt.figure(figsize=(100.0, 100.0))
                     self.display(dmode='sky2d', mode='xy')
                     plt.figure()
-                    
+            
                     """ Take the median along the spatial direction to make an
                         estimate of the 1d sky """
                     pix = np.arange(self.npix)
@@ -437,21 +444,31 @@ class Spec2d(imf.Image):
             plt.figure()
 
             """ Subtract the sky from the data """
+            self.data_org = self.data
+            skysub = self.data - sky2d
+            
+            ## we actually wasn't using sky subtracted data before..we 
+            ## were just plotting it
+            
+            self.data = skysub
+            print("\nFrom this point sky subtracted data will be used")
+            
             # we need to transpose 'skysub' if 'y' is the dispersion axis so 
             # that in the plotted sky subtracted spectra the dispersion axis stays along
             # the image x axis.
+            
             if spaceaxis:
-                skysub = (self.data - sky2d).T
-            else:
-                skysub = self.data - sky2d
+                skysub = skysub.T
+                
             self['skysub'] = imf.WcsHDU(skysub, wcsverb=False)
 
             """ Clean up """
             del sky2d, skysub 
 
     # -----------------------------------------------------------------------
-
-    def szap(self, outfile, sigmax=5., boxsize=7):
+    # adding a new parameter 'use_skymod' to pass this parameter to the
+    # function subtract_sky_2d()
+    def szap(self, outfile, sigmax=5., boxsize=7, use_skymod=False):
         """
 
         Rejects cosmic rays from a 2D spectrum via the following
@@ -465,7 +482,7 @@ class Spec2d(imf.Image):
         """
 
         """ Subtract the sky  """
-        self.subtract_sky_2d()
+        self.subtract_sky_2d(use_skymod=use_skymod)
         skysub = self['skysub'].data.copy()
 
         """
@@ -489,6 +506,8 @@ class Spec2d(imf.Image):
         skysub[mask] = self.mean_clip
         ssfilt = filters.median_filter(skysub, boxsize)
         skysub[mask] = ssfilt[mask]
+        
+        
 
         """ Add the sky back in and save the final result """
         szapped = skysub + self['sky2d'].data
@@ -540,10 +559,13 @@ class Spec2d(imf.Image):
         # with the transposed data which now becomes data[x_pix:y_pix]
         # instead of data[y_pix:x_pix]
         if self.dispaxis == "y":
-            self['proxy_data'] = imf.WcsHDU(self.data.T, wcsverb=False)
-            self.display(dmode='proxy_data', mode='xy', axlabel=False)
+            # new change
+            self['org_data'] = imf.WcsHDU(self.data_org.T, wcsverb=False)
         else:
-            self.display(mode='xy', axlabel=False)
+            # new change
+            self['org_data'] = imf.WcsHDU(self.data_org, wcsverb=False)
+            #self.display(mode='xy', axlabel=False)
+        self.display(dmode='org_data', mode='xy', axlabel=False)
 
         """ Plot the subtracted sky spectrum if desired """
         if doskysub:
