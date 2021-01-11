@@ -928,7 +928,7 @@ class Spec2d(imf.Image):
         if profile is None:
             profile = self.profile
         mod_new, fit_info = profile.fit_mod(mod, verbose=True)
-        diff = profile.y - mod(profile.x)
+        diff = profile.y - mod_new(profile.x)
         
         if verbose:
             print('\nFitted model')
@@ -943,7 +943,7 @@ class Spec2d(imf.Image):
         frame1=fig.add_axes((.1,.3,.8,.6))
         plt.plot(profile.x, profile.y, color='b', linestyle='solid',
                                drawstyle='steps', label='Spatial profile')
-        plt.plot(profile.x, mod(profile.x), color='g', drawstyle='steps',
+        plt.plot(profile.x, mod_new(profile.x), color='g', drawstyle='steps',
                                                            label='model fit')
         plt.ylabel('Relative flux')
         plt.legend()
@@ -964,19 +964,19 @@ class Spec2d(imf.Image):
         for i, md in enumerate(mod):
             if isinstance(md, models.Gaussian1D):
                 if label_g:
-                    plt.plot(profile.x, mod[i](profile.x), color='k',
+                    plt.plot(profile.x, mod_new[i](profile.x), color='k',
                              drawstyle='steps', label='Gaussian prof. in fit')
                     label_g = False
                 else:
-                    plt.plot(profile.x, mod[i](profile.x), color='k',
+                    plt.plot(profile.x, mod_new[i](profile.x), color='k',
                                                              drawstyle='steps')
             elif isinstance(md, models.Moffat1D):
                 if label_m:
-                    plt.plot(profile.x, mod[i](profile.x), color='r',
+                    plt.plot(profile.x, mod_new[i](profile.x), color='r',
                                 drawstyle='steps', label='Moffat prof. in fit')
                     label_m = False
                 else:
-                    plt.plot(profile.x, mod[i](profile.x), color='r',
+                    plt.plot(profile.x, mod_new[i](profile.x), color='r',
                                                               drawstyle='steps')
         plt.legend()
         plt.xlabel('Spatial direction (0-indexed)')
@@ -1161,6 +1161,7 @@ class Spec2d(imf.Image):
         to the trace parameters
         """
         x0 = coarsepars['x']
+        print(x0)
         if fitrange is None:
             xmask = np.ones(len(x0), dtype=bool)
             fittab = coarsepars.copy()
