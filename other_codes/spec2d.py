@@ -390,9 +390,9 @@ class Spec2d(imf.Image):
                         self['skysub'] = imf.WcsHDU(skysub, wcsverb=False)
                         self['sky2d'] = imf.WcsHDU(sky2d_mod, wcsverb=False)
                         
-                    plt.figure(figsize=(100.0, 100.0))
-                    self.display(dmode='sky2d', mode='xy')
-                    plt.figure()
+                    #plt.figure(figsize=(100.0, 100.0))
+                    #self.display(dmode='sky2d', mode='xy')
+                    #plt.figure()
             
                     """ Take the median along the spatial direction to make an
                         estimate of the 1d sky """
@@ -439,9 +439,9 @@ class Spec2d(imf.Image):
                             (self.data.shape[spaceaxis], 1))
                 self['sky2d'] = imf.WcsHDU(sky2d, wcsverb=False)
             
-            plt.figure(figsize=(100.0, 100.0))
-            self.display(dmode='sky2d', mode='xy')
-            plt.figure()
+            #plt.figure(figsize=(100.0, 100.0))
+            #self.display(dmode='sky2d', mode='xy')
+            #plt.figure()
 
             """ Subtract the sky from the data """
             self.data_org = self.data
@@ -467,8 +467,9 @@ class Spec2d(imf.Image):
 
     # -----------------------------------------------------------------------
     # adding a new parameter 'use_skymod' to pass this parameter to the
-    # function subtract_sky_2d()
-    def szap(self, outfile, sigmax=5., boxsize=7, use_skymod=False):
+    # function subtract_sky_2d(). Also not storing 'szapped' data by 
+    # making outfile=None
+    def szap(self, outfile=None, sigmax=5., boxsize=7, use_skymod=False):
         """
 
         Rejects cosmic rays from a 2D spectrum via the following
@@ -507,19 +508,28 @@ class Spec2d(imf.Image):
         ssfilt = filters.median_filter(skysub, boxsize)
         skysub[mask] = ssfilt[mask]
         
-        
-
         """ Add the sky back in and save the final result """
         szapped = skysub + self['sky2d'].data
-        pf.PrimaryHDU(szapped).writeto(outfile)
-        print(' Wrote szapped data to %s' % outfile)
+        
+        #change
+        print("\nFrom now cosmic ray rejected data will be used\n")
+        if self.dispaxis == 'y':
+            self.data = skysub.T
+        else:
+            self.data = skysub
+        """ Store cosmic ray rejected data """
+        self['csraysub'] = imf.WcsHDU(skysub, wcsverb=False)
+        #pf.PrimaryHDU(szapped).writeto(outfile)
+        #print(' Wrote szapped data to %s' % outfile)
 
         """ Clean up """
         del skysub, ssrms, tmpsub, szapped
 
     # -----------------------------------------------------------------------
     ## adding new parameter 'use_skymod' for the function subtract_sky_2d
-    def display_spec(self, doskysub=True, use_skymod=False):
+    # also adding a parameter to reject cosmic rays besides sky subtraction
+    # This parameter is 'doszap'
+    def display_spec(self, doskysub=True, use_skymod=False, doszap=False):
         """
         Displays the two-dimensional spectrum and also, by default, the
         same spectrum after a crude sky subtraction.  To show only the
@@ -531,6 +541,20 @@ class Spec2d(imf.Image):
                        plot, showing the 2-D spectrum after a crude
                        sky-subtraction has been performed.
         """
+        # new change
+        """If wanted cosmic ray rejection can be performed here. And as
+           the fuction for cosmic ray subtraction also does sky subtraction
+           by default we will make doskysub=False not to go through sky 
+           subtraction again."""
+        if doszap:
+            self.szap(use_skymod=use_skymod)
+            doskysub=False
+            
+            """ Set the subplot designation for the main spectrum """
+            pltnum_main = 411
+            
+            """ Get rid of the space between the subplots"""
+            plt.subplots_adjust(hspace=0.001)
 
         if doskysub:
 
@@ -547,8 +571,10 @@ class Spec2d(imf.Image):
              
 
         else:
-            """ If no sky subtraction, then we just have one plot """
-            pltnum_main = 111
+            #new change
+            if doszap==False:
+                """ If no sky subtraction, then we just have one plot """
+                pltnum_main = 111
 
         """ Plot the input spectrum """
         ax1 = plt.subplot(pltnum_main)
@@ -580,24 +606,45 @@ class Spec2d(imf.Image):
             """ Plot an estimate of the 1D sky spectrum """
             ax3 = plt.subplot(212, sharex=ax1)
             self.sky1d.plot(title=None, xlabel='x (pix)', ax=ax3)
+            
+        if doszap:
+            """ First get rid of the x-axis tick labels for main plot """
+            ax1.set_xticklabels([])
+            
+            """ Plot the sky-subtracted 2D spectrum """
+            ax2 = plt.subplot(412, sharex=ax1, sharey=ax1)
+            self.found_rms = False
+            self.display(dmode='skysub', mode='xy')
+            
+            """ Plot the cosmic ray rejected 2d spectrum """
+            ax3 = plt.subplot(413, sharex=ax2, sharey=ax2)
+            #self.found_rms = False
+            self.display(dmode='csraysub', mode='xy')
+            
+            """ Plot an estimate of the 1D sky spectrum """
+            # plot position has been changed
+            ax4 = plt.subplot(515, sharex=ax1)
+            self.sky1d.plot(title=None, xlabel='x (pix)', ax=ax4)
+            
         self.found_rms = False
 
         """
         For ease of viewing, only display part of the spectrum if it is
         much longer in one dimension than the other
         """
+        ## ax3 has been chabged to ax4
         sfac = 7.5
         if self.npix > sfac * self.nspat:
             xmin = int(self.npix / 2. - (sfac/2.) * self.nspat)
             xmax = int(self.npix / 2. + (sfac/2.) * self.nspat)
-            ax3.set_xlim(xmin, xmax)
+            ax4.set_xlim(xmin, xmax)
 
             """ Scale the portion of the spectrum that is being displayed """
             w = self.sky1d['wav']
             flux = self.sky1d['flux'][(w >= xmin) & (w <= xmax)]
-            ymin, ymax = ax3.get_ylim()
+            ymin, ymax = ax4.get_ylim()
             ydiff = flux.max() - ymin
-            ax3.set_ylim(ymin, (ymin + 1.05 * ydiff))
+            ax4.set_ylim(ymin, (ymin + 1.05 * ydiff))
 
     # -----------------------------------------------------------------------
 
