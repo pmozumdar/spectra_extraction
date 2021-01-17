@@ -12,12 +12,13 @@ Typical methods that are used to do an extraction:
    extract
 
 """
-# importing also gamma function from scipy
+# importing also gamma function and map_coordinate function from scipy
 from math import sqrt, pi
 
 import numpy as np
 from scipy.ndimage import filters
-from scipy.special import gamma 
+from scipy.special import gamma
+from scipy.ndimage import map_coordinates
 import matplotlib.pyplot as plt
 
 from astropy.io import fits as pf
@@ -645,8 +646,88 @@ class Spec2d(imf.Image):
             ymin, ymax = ax4.get_ylim()
             ydiff = flux.max() - ymin
             ax4.set_ylim(ymin, (ymin + 1.05 * ydiff))
+            
+# -----------------------------------------------------------------------
 
-    # -----------------------------------------------------------------------
+    def do_waverect(self, doplot=False, resamp_ord=5):
+        """
+        If 2d wave image is tilted then this function can rectify for it
+        by calculating a new coordinate grid in pixel numbers. Then this 
+        new coordinates will be used to resample the data.
+        """
+        """First trim the 2d wave image as per data"""
+        
+        if self.hext >0 :
+            wav2d_dat = pf.open(self.inspec)[self.hext+7].data
+            wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
+            print(wav2d_dat.shape)
+            
+        self.ss_data = self.data
+        indata = self.data
+        
+        """ Set the dispersion axis direction """
+        
+        if self.dispaxis == "y":
+            wav2d_dat = wav2d_dat.T
+            indata = indata.T
+            print(wav2d_dat.shape)
+            
+        """Calculate the dispersion """
+        
+        spec_pix = np.arange(self.npix)
+        disp = np.polyfit(spec_pix, wav2d_dat.T , deg=1)[0]
+        if doplot:
+            plt.plot(np.arange(wav2d_dat.shape[0]), disp, '.', markersize=10)
+            plt.xlabel("spatial axis")
+            plt.ylabel("Dispersion")
+            plt.figure()
+        disp = round(np.mean(disp), 2)
+        print("Dispersion : %f" %disp)
+        
+        """ Calculate coordinates for the resampling """
+        
+        wmin = wav2d_dat.min()
+        wmax = wav2d_dat.max()
+        nspec = self.npix      #1 + int((wmax-wmin) / dw)
+        nspat = wav2d_dat.shape[0]
+        # This gives a list of two arrays, y and x
+        newcoords = np.indices((nspat, nspec), dtype=float)
+        
+        """ Note that the y coordinates won't change, so we just need to
+            adjust the x output coordinates """
+        xdiff = (wmin + disp * newcoords[1] - wav2d_dat) / disp
+        newcoords[1] += xdiff
+        
+        """ Resample the wavelength data, just as a check """
+        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=1,
+                                    cval=np.nan)
+        
+        if doplot:
+            diff = []
+            for i in range(wav2d_dat.shape[1]):
+                diff.append(np.max(new_wav2d[:, i:i+1]) - 
+                            np.min(new_wav2d[:, i:i+1]))
+                
+            plt.plot(np.arange(wav2d_dat.shape[1]), diff, '.')
+            plt.xlabel('dispersion axis')
+            plt.ylabel('Angstrom')
+            plt.title("Difference between maximun and minimum wavelength"\
+                      " in each spec pixel")
+        
+        """ Finally resample sky-subtracted and szapped data """
+        
+        resamp_data = map_coordinates(indata, newcoords, order=resamp_ord,
+                                      cval=np.nan)
+        
+        if self.dispaxis == "y":
+            self.data = resamp_data.T
+        else:
+            self.data = resamp_data    
+        print("\nsky subtracted and cosmic ray rejected data has been"\
+              " resampled in place of the coordinateds whcih rectify"\
+              " the tilted wave image")
+
+# ----------------------------------------------------------------------------------
 
     def compress_spec(self, pixrange=None):
         """
@@ -1056,6 +1137,7 @@ class Spec2d(imf.Image):
         plt.show()
         
         return mod_new
+
 # -----------------------------------------------------------------------
 
     def locate_trace(self, pixrange=None, init=None, fix=None,
