@@ -333,9 +333,11 @@ class Spec2d(imf.Image):
 
             """
             Now find the median sky values by calling the subtract_sky_2d
-            method
+            method if not already done
             """
-            self.subtract_sky_2d()
+            ##change
+            if self.sky1d is None:
+                self.subtract_sky_2d()
 
             """
             Finally, replace the NaNs with the median sky for their row/column
@@ -357,6 +359,11 @@ class Spec2d(imf.Image):
                      spectrum
         outskyspec - name for output 1D sky spectrum
         """
+        
+        """If sky1d is already been calculated then no need to use this
+           function again"""
+        if self.sky1d is not None:
+            return
 
         """ Set the dispersion axis direction """
         if self.dispaxis == 'y':
@@ -727,6 +734,8 @@ class Spec2d(imf.Image):
         else:
             self.data = resamp_data
             self.new_wav2d = new_wav2d
+            
+        self.fix_nans_spec(verbose=True)
         print("\nsky subtracted and cosmic ray rejected data has been"\
               " resampled in place of the coordinateds whcih rectify"\
               " the tilted wave image")
@@ -1999,7 +2008,7 @@ class Spec2d(imf.Image):
         # need to calculate variance
         
         """add sky flux to the spectra """
-        if doskysub or doszap:
+        if self.sky1d is not None:
             skyflux = self.sky1d['flux']
         else:
             skyflux = np.zeros(self.npix)
