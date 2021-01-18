@@ -661,7 +661,7 @@ class Spec2d(imf.Image):
         if self.hext >0 :
             wav2d_dat = pf.open(self.inspec)[self.hext+7].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
-            print(wav2d_dat.shape)
+            #print(wav2d_dat.shape)
             
         self.ss_data = self.data
         indata = self.data
@@ -671,7 +671,7 @@ class Spec2d(imf.Image):
         if self.dispaxis == "y":
             wav2d_dat = wav2d_dat.T
             indata = indata.T
-            print(wav2d_dat.shape)
+            #print(wav2d_dat.shape)
             
         """Calculate the dispersion """
         
@@ -1992,12 +1992,18 @@ class Spec2d(imf.Image):
                 pwav[0] = pwav[1]- self.disp
                 
             if np.isnan(pwav[-1]):
-                pwav[-1] = pwav[-1] + self.disp
+                pwav[-1] = pwav[-2] + self.disp
         else:    
             self.get_wavelength()
       
         # need to calculate variance
         
+        """add sky flux to the spectra """
+        if doskysub or doszap:
+            skyflux = self.sky1d['flux']
+        else:
+            skyflux = np.zeros(self.npix)
+            
         # create a container to store extraxted 1d spectra
         spectra = []
         
@@ -2011,11 +2017,14 @@ class Spec2d(imf.Image):
             #new change to incorporate wavelength extraction from pypeit generated
             #wave image
             if use_wavim:
-                spectra.append((title, Spec1d(wav=wav[p], flux=flux[p])))
+                spectra.append((title, Spec1d(wav=wav[p], flux=flux[p],
+                                              sky=skyflux)))
             elif self.new_wav2d is not None:
-                spectra.append((title, Spec1d(wav=pwav, flux=flux[p])))
+                spectra.append((title, Spec1d(wav=pwav, flux=flux[p], 
+                                              sky=skyflux)))
             else:
-                spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p])))
+                spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p], 
+                                              sky=skyflux)))
             
         # adding these two lines so that list named 'spectra' and table
         # named 'flux' is accessible from the function 'extract'.
