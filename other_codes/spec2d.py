@@ -683,6 +683,7 @@ class Spec2d(imf.Image):
             plt.ylabel("Dispersion")
             plt.figure()
         disp = round(np.mean(disp), 2)
+        self.disp = disp
         print("Dispersion : %f" %disp)
         
         """ Calculate coordinates for the resampling """
@@ -1987,8 +1988,11 @@ class Spec2d(imf.Image):
             Compress the wavelength along the spatial axis
             """
             pwav = np.median(tmpwav, axis=self.spaceaxis)
-            pwav[0] = pwav[1]- 0.8
-            pwav[-1] = pwav[-2] + 0.8
+            if np.isnan(pwav[0]) :
+                pwav[0] = pwav[1]- self.disp
+                
+            if np.isnan(pwav[-1]):
+                pwav[-1] = pwav[-1] + self.disp
         else:    
             self.get_wavelength()
       
