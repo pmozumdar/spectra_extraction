@@ -127,11 +127,12 @@ class Spec2d(imf.Image):
         self.sigorder = 3
         self.mod0 = None
         self.logwav = logwav
-        # initialize three new variables here
+        # initialize five new variables here
         self.flux = None
         self.spectra = None
         self.hext = hext
         self.inspec = inspec
+        self.new_wav2d = None
 
         """
         Read in the data and call the superclass initialization for useful
@@ -721,8 +722,10 @@ class Spec2d(imf.Image):
         
         if self.dispaxis == "y":
             self.data = resamp_data.T
+            self.new_wav2d = new_wav2d.T
         else:
-            self.data = resamp_data    
+            self.data = resamp_data
+            self.new_wav2d = new_wav2d
         print("\nsky subtracted and cosmic ray rejected data has been"\
               " resampled in place of the coordinateds whcih rectify"\
               " the tilted wave image")
@@ -1978,6 +1981,14 @@ class Spec2d(imf.Image):
                         
                     wav['moffat_%d' %i] = wav_cent
         
+        elif self.new_wav2d is not None:
+            tmpwav = self.new_wav2d.copy()
+            """
+            Compress the wavelength along the spatial axis
+            """
+            pwav = np.median(tmpwav, axis=self.spaceaxis)
+            pwav[0] = pwav[1]- 0.8
+            pwav[-1] = pwav[-2] + 0.8
         else:    
             self.get_wavelength()
       
@@ -1997,6 +2008,8 @@ class Spec2d(imf.Image):
             #wave image
             if use_wavim:
                 spectra.append((title, Spec1d(wav=wav[p], flux=flux[p])))
+            elif self.new_wav2d is not None:
+                spectra.append((title, Spec1d(wav=pwav, flux=flux[p])))
             else:
                 spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p])))
             
@@ -2229,8 +2242,10 @@ class Spec2d(imf.Image):
             #change to accomodate wavelength extraction from pypeit 2d wave image
             if use_wavim:
                 xlab = 'Wavelength'
-            elif self.has_cdmatx:
+            elif self.new_wav2d is not None:
                 xlab = 'Wavelength'
+            elif self.has_cdmatx:
+                xlab = 'Wavelength'           
             else:
                 xlab = 'Pixel number along the %s axis' % self.dispaxis
                 
