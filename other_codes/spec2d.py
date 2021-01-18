@@ -342,7 +342,12 @@ class Spec2d(imf.Image):
             """
             Finally, replace the NaNs with the median sky for their row/column
             """
-            self.data[nanmask] = self['sky2d'].data[nanmask]
+            sk2d = self['sky2d'].data
+            
+            if self.dispaxis == 'y':
+                self.data[nanmask] = sk2d.T[nanmask]
+            else:
+                self.data[nanmask] = sk2d[nanmask]
 
     # -----------------------------------------------------------------------
     ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
@@ -458,7 +463,7 @@ class Spec2d(imf.Image):
             
             ## we actually wasn't using sky subtracted data before..we 
             ## were just plotting it
-            
+
             self.data = skysub
             print("\nFrom this point sky subtracted data will be used")
             
@@ -736,6 +741,7 @@ class Spec2d(imf.Image):
             self.new_wav2d = new_wav2d
             
         self.fix_nans_spec(verbose=True)
+        
         print("\nsky subtracted and cosmic ray rejected data has been"\
               " resampled in place of the coordinateds whcih rectify"\
               " the tilted wave image")
