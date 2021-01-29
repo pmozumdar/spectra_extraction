@@ -134,3 +134,4 @@ specim_test/
 
 #data files
 *.fits
+*.txt
