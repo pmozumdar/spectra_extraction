@@ -19,6 +19,7 @@ import numpy as np
 from scipy.ndimage import filters
 from scipy.special import gamma
 from scipy.ndimage import map_coordinates
+from scipy import interpolate as ip
 import matplotlib.pyplot as plt
 
 from astropy.io import fits as pf
@@ -391,6 +392,8 @@ class Spec2d(imf.Image):
                 else:
                     skysub = self.data - sky2d_mod
                     
+                    #pf.PrimaryHDU(skysub.T).writeto(outfile)
+                    #print(' Wrote sky subtracted data to %s' % outfile)
                     ## we actually wasn't using sky subtracted data before..we 
                     ## were just plotting it
                     self.data_org = self.data
@@ -689,8 +692,10 @@ class Spec2d(imf.Image):
         
         spec_pix = np.arange(self.npix)
         disp = np.polyfit(spec_pix, wav2d_dat.T , deg=1)[0]
+        #disp = np.polyfit(spec_pix, wav2d_dat , deg=1)[0]
         if doplot:
             plt.plot(np.arange(wav2d_dat.shape[0]), disp, '.', markersize=10)
+            #plt.plot(np.arange(wav2d_dat.shape[1]), disp, '.', markersize=10)
             plt.xlabel("spatial axis")
             plt.ylabel("Dispersion")
             plt.figure()
@@ -704,7 +709,7 @@ class Spec2d(imf.Image):
         wmax = wav2d_dat.max()
         nspec = self.npix      #1 + int((wmax-wmin) / dw)
         nspat = wav2d_dat.shape[0]
-        # This gives a list of two arrays, y and x
+         #This gives a list of two arrays, y and x
         newcoords = np.indices((nspat, nspec), dtype=float)
         
         """ Note that the y coordinates won't change, so we just need to
@@ -712,17 +717,36 @@ class Spec2d(imf.Image):
         xdiff = (wmin + disp * newcoords[1] - wav2d_dat) / disp
         newcoords[1] += xdiff
         
+        #new_co = np.zeros(wav2d_dat.shape)
+        
+        #for i in range(wav2d_dat.shape[0]-1):
+            #x = np.array([i, i+1])
+            #for j in range(wav2d_dat.shape[1]):
+                #y = np.array([wav2d_dat[i][j], wav2d_dat[i+1][j]])
+                #print(y)
+                #f = ip.interp1d(y, x, kind='slinear')    #, fill_value='extrapolate')
+                #new_co[i][j] = f(wav2d_dat[i][0])
+        
         """ Resample the wavelength data, just as a check """
-        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=1,
+        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=5,
                                     cval=np.nan)
         
+        #spatial_grid = np.arange(wav2d_dat.shape[1])
+        #new_wavim = np.zeros(wav2d_dat.shape)
+
+        #for i in range(wav2d_dat.shape[0]-1):
+            #new_wavim[i] = map_coordinates(wav2d_dat,  np.array([new_co[i], spatial_grid]), order=5)
+
         if doplot:
             diff = []
             for i in range(wav2d_dat.shape[1]):
+            #for i in range(wav2d_dat.shape[0]):
                 diff.append(np.max(new_wav2d[:, i:i+1]) - 
                             np.min(new_wav2d[:, i:i+1]))
+                #diff.append(round(np.max(new_wavim[i:i+1, : ]) - np.min(new_wavim[i:i+1, : ]), 4))
                 
             plt.plot(np.arange(wav2d_dat.shape[1]), diff, '.')
+            #plt.plot(spec_pix, diff , '.')
             plt.xlabel('dispersion axis')
             plt.ylabel('Angstrom')
             plt.title("Difference between maximun and minimum wavelength"\
@@ -732,6 +756,9 @@ class Spec2d(imf.Image):
         
         resamp_data = map_coordinates(indata, newcoords, order=resamp_ord,
                                       cval=np.nan)
+        #resamp_data = np.zeros(wav2d_dat.shape)
+        #for i in range(wav2d_dat.shape[0]-1):
+            #resamp_data[i] = map_coordinates(indata,  np.array([new_co[i], spatial_grid]), order=5)
         
         if self.dispaxis == "y":
             self.data = resamp_data.T
@@ -739,6 +766,7 @@ class Spec2d(imf.Image):
         else:
             self.data = resamp_data
             self.new_wav2d = new_wav2d
+        #self.data[0:-1, :] = resamp_data[0:-1, :]
             
         self.fix_nans_spec(verbose=True)
         
@@ -1155,6 +1183,7 @@ class Spec2d(imf.Image):
         plt.title('Individual profile component in fitted model')
         plt.show()
         
+        self.mod0 = mod_new
         return mod_new
 
 # -----------------------------------------------------------------------
@@ -1303,6 +1332,7 @@ class Spec2d(imf.Image):
             else:
                 mod, fitinfo = tmpprof.fit_mod(mod0=mod0, usevar=usevar,
                                            verbose=debug)
+                #mod0 = mod
             #print('from fit_slice')
             #print(fitinfo)
             #if i%5==0:
@@ -1373,6 +1403,9 @@ class Spec2d(imf.Image):
                 parm_name.append('x_0_%d' %i)
                 parm_name.append('gamma_%d' %i)
                 parm_name.append('alpha_%d' %i)
+            
+            elif isinstance(m, models.Polynomial1D):
+                parm_name.append('c0_%d' %i)
         
         #for p in coarsepars.colnames:
         for i, p in enumerate(parm_name):
@@ -1748,6 +1781,10 @@ class Spec2d(imf.Image):
             #print(np.shape(profdat))
             #print(profdat)
             #plt.plot(x, profdat)
+            elif isinstance(mod, models.Polynomial1D):
+                c_0 = np.polyval(polypars['c0_%d' % i], x)
+                parm_tab['c0_%d' %i] = c_0
+                
             
 
         """ Normalize the profile in the spatial direction """
@@ -1914,8 +1951,10 @@ class Spec2d(imf.Image):
                     """Here we are not fixing any background polynomial 
                        parameters which means all of them will be fitted to data."""
                     
-                    mods.append(mod)
-                    
+                    #mods.append(mod)
+                    b = models.Polynomial1D(degree=0, c0=parm_tab['c0_%d' %j][i],
+                                            fixed={'c0' : True})
+                    mods.append(b)
                 elif isinstance(mod, models.Gaussian1D):
                      
                     g = models.Gaussian1D(amplitude=1, mean=parm_tab['mean_%d' % j][i], 
@@ -1955,8 +1994,9 @@ class Spec2d(imf.Image):
         flux = Table()
         for i, mod in enumerate(mod0):
             if isinstance(mod, models.Gaussian1D):
-                flux['gaussian_%d' %i] = (sqrt(2. * pi) * fitpars['stddev_%d' %i]
-                                                    * fitpars['amplitude_%d' %i])
+                #flux['gaussian_%d' %i] = (sqrt(2. * pi) * fitpars['stddev_%d' %i]
+                                                    #* fitpars['amplitude_%d' %i])
+                flux['gaussian_%d' %i] = fitpars['amplitude_%d' %i]
             elif isinstance(mod, models.Moffat1D):
                 flux['moffat_%d' %i] = ( sqrt(pi) * fitpars['amplitude_%d' %i] *
                                       fitpars['gamma_%d' % i] * 
@@ -2045,6 +2085,8 @@ class Spec2d(imf.Image):
         # named 'flux' is accessible from the function 'extract'.
         self.spectra = spectra
         self.flux = flux
+        
+        self.fitpars= fitpars
         
         # enable to return flux, spectra
         return fitpars, covar, flux, spectra
