@@ -392,8 +392,8 @@ class Spec2d(imf.Image):
                 else:
                     skysub = self.data - sky2d_mod
                     
-                    #pf.PrimaryHDU(skysub.T).writeto(outfile)
-                    #print(' Wrote sky subtracted data to %s' % outfile)
+                    pf.PrimaryHDU(skysub).writeto(outfile)
+                    print(' Wrote sky subtracted data to %s' % outfile)
                     ## we actually wasn't using sky subtracted data before..we 
                     ## were just plotting it
                     self.data_org = self.data
@@ -537,7 +537,8 @@ class Spec2d(imf.Image):
         """ Store cosmic ray rejected data """
         self['csraysub'] = imf.WcsHDU(skysub, wcsverb=False)
         #pf.PrimaryHDU(szapped).writeto(outfile)
-        #print(' Wrote szapped data to %s' % outfile)
+        pf.PrimaryHDU(skysub).writeto(outfile)
+        print(' Wrote szapped data to %s' % outfile)
 
         """ Clean up """
         del skysub, ssrms, tmpsub, szapped
@@ -650,22 +651,35 @@ class Spec2d(imf.Image):
         much longer in one dimension than the other
         """
         ## ax3 has been chabged to ax4
-        sfac = 7.5
-        if self.npix > sfac * self.nspat:
-            xmin = int(self.npix / 2. - (sfac/2.) * self.nspat)
-            xmax = int(self.npix / 2. + (sfac/2.) * self.nspat)
-            ax4.set_xlim(xmin, xmax)
+        if doszap :
+            sfac = 7.5
+            if self.npix > sfac * self.nspat:
+                xmin = int(self.npix / 2. - (sfac/2.) * self.nspat)
+                xmax = int(self.npix / 2. + (sfac/2.) * self.nspat)
+                ax4.set_xlim(xmin, xmax)
 
-            """ Scale the portion of the spectrum that is being displayed """
-            w = self.sky1d['wav']
-            flux = self.sky1d['flux'][(w >= xmin) & (w <= xmax)]
-            ymin, ymax = ax4.get_ylim()
-            ydiff = flux.max() - ymin
-            ax4.set_ylim(ymin, (ymin + 1.05 * ydiff))
-            
+                """ Scale the portion of the spectrum that is being displayed """
+                w = self.sky1d['wav']
+                flux = self.sky1d['flux'][(w >= xmin) & (w <= xmax)]
+                ymin, ymax = ax4.get_ylim()
+                ydiff = flux.max() - ymin
+                ax4.set_ylim(ymin, (ymin + 1.05 * ydiff))
+        else:
+            sfac = 7.5
+            if self.npix > sfac * self.nspat:
+                xmin = int(self.npix / 2. - (sfac/2.) * self.nspat)
+                xmax = int(self.npix / 2. + (sfac/2.) * self.nspat)
+                ax3.set_xlim(xmin, xmax)
+
+                """ Scale the portion of the spectrum that is being displayed """
+                w = self.sky1d['wav']
+                flux = self.sky1d['flux'][(w >= xmin) & (w <= xmax)]
+                ymin, ymax = ax3.get_ylim()
+                ydiff = flux.max() - ymin
+                ax3.set_ylim(ymin, (ymin + 1.05 * ydiff))
 # -----------------------------------------------------------------------
 
-    def do_waverect(self, doplot=False, resamp_ord=5):
+    def do_waverect(self, doplot=False, resamp_ord=5, outfile=None):
         """
         If 2d wave image is tilted then this function can rectify for it
         by calculating a new coordinate grid in pixel numbers. Then this 
@@ -760,6 +774,7 @@ class Spec2d(imf.Image):
         #for i in range(wav2d_dat.shape[0]-1):
             #resamp_data[i] = map_coordinates(indata,  np.array([new_co[i], spatial_grid]), order=5)
         
+        pf.PrimaryHDU(resamp_data.T).writeto(outfile)
         if self.dispaxis == "y":
             self.data = resamp_data.T
             self.new_wav2d = new_wav2d.T
@@ -1880,9 +1895,9 @@ class Spec2d(imf.Image):
         these two lines will be deleted.
         """
         ##temporary solution ..need to fix 
-        if self.dispaxis == "x":
-            self.mu = self.profmods[0].mean.value
-            self.sig = self.profmods[0].stddev.value
+        #if self.dispaxis == "x":
+            #self.mu = self.profmods[0].mean.value
+            #self.sig = self.profmods[0].stddev.value
 
     # -----------------------------------------------------------------------
     #adding new parameter 'use_wavim' to give the option to use pypeit
@@ -1951,10 +1966,10 @@ class Spec2d(imf.Image):
                     """Here we are not fixing any background polynomial 
                        parameters which means all of them will be fitted to data."""
                     
-                    #mods.append(mod)
-                    b = models.Polynomial1D(degree=0, c0=parm_tab['c0_%d' %j][i],
-                                            fixed={'c0' : True})
-                    mods.append(b)
+                    mods.append(mod)
+                    #b = models.Polynomial1D(degree=0, c0=parm_tab['c0_%d' %j][i],
+                    #                        fixed={'c0' : True})
+                    #mods.append(b)
                 elif isinstance(mod, models.Gaussian1D):
                      
                     g = models.Gaussian1D(amplitude=1, mean=parm_tab['mean_%d' % j][i], 
@@ -1994,9 +2009,8 @@ class Spec2d(imf.Image):
         flux = Table()
         for i, mod in enumerate(mod0):
             if isinstance(mod, models.Gaussian1D):
-                #flux['gaussian_%d' %i] = (sqrt(2. * pi) * fitpars['stddev_%d' %i]
-                                                    #* fitpars['amplitude_%d' %i])
-                flux['gaussian_%d' %i] = fitpars['amplitude_%d' %i]
+                flux['gaussian_%d' %i] = (sqrt(2. * pi) * fitpars['stddev_%d' %i]
+                                                    * fitpars['amplitude_%d' %i])
             elif isinstance(mod, models.Moffat1D):
                 flux['moffat_%d' %i] = ( sqrt(pi) * fitpars['amplitude_%d' %i] *
                                       fitpars['gamma_%d' % i] * 
