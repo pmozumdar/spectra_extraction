@@ -2062,11 +2062,13 @@ class Spec2d(imf.Image):
             Compress the wavelength along the spatial axis
             """
             pwav = np.median(tmpwav, axis=self.spaceaxis)
-            if np.isnan(pwav[0]) :
-                pwav[0] = pwav[1]- self.disp
+            for i in range(9, -1, -1):
+                if np.isnan(pwav[i]) :
+                    pwav[i] = pwav[i+1]- self.disp
                 
-            if np.isnan(pwav[-1]):
-                pwav[-1] = pwav[-2] + self.disp
+            for i in range(-10, 0):
+                if np.isnan(pwav[i]):
+                    pwav[i] = pwav[i-1] + self.disp
         else:    
             self.get_wavelength()
       
