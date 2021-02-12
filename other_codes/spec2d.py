@@ -330,25 +330,27 @@ class Spec2d(imf.Image):
                 print('Found %d NaNs in the two-dimensional spectrum' % nnan)
 
             """ First replace the NaNs with a temporary value """
-            self.data[nanmask] = -999
+            self.data[nanmask] = -10 #-999
 
             """
             Now find the median sky values by calling the subtract_sky_2d
             method if not already done
             """
             ##change
-            if self.sky1d is None:
-                self.subtract_sky_2d()
+            #if self.sky1d is None:
+            #    self.subtract_sky_2d()
+            
+            ### as data is already sky subtracted and szaped
 
             """
             Finally, replace the NaNs with the median sky for their row/column
             """
-            sk2d = self['sky2d'].data
+            #sk2d = self['sky2d'].data
             
-            if self.dispaxis == 'y':
-                self.data[nanmask] = sk2d.T[nanmask]
-            else:
-                self.data[nanmask] = sk2d[nanmask]
+            #if self.dispaxis == 'y':
+            #    self.data[nanmask] = sk2d.T[nanmask]
+            #else:
+            #    self.data[nanmask] = sk2d[nanmask]
 
     # -----------------------------------------------------------------------
     ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
@@ -392,8 +394,8 @@ class Spec2d(imf.Image):
                 else:
                     skysub = self.data - sky2d_mod
                     
-                    pf.PrimaryHDU(skysub).writeto(outfile)
-                    print(' Wrote sky subtracted data to %s' % outfile)
+                    #pf.PrimaryHDU(skysub).writeto(outfile)
+                    #print(' Wrote sky subtracted data to %s' % outfile)
                     ## we actually wasn't using sky subtracted data before..we 
                     ## were just plotting it
                     self.data_org = self.data
@@ -520,10 +522,10 @@ class Spec2d(imf.Image):
         tmpsub[mask] = m
 
         """ Replace the bad pixels in skysub with a median-filtered value """
-        self.sigma_clip('skysub')
-        skysub[mask] = self.mean_clip
-        ssfilt = filters.median_filter(skysub, boxsize)
-        skysub[mask] = ssfilt[mask]
+        #self.sigma_clip('skysub')
+        #skysub[mask] = self.mean_clip
+        #ssfilt = filters.median_filter(skysub, boxsize)
+        skysub[mask] =  -5000  #ssfilt[mask]
         
         """ Add the sky back in and save the final result """
         szapped = skysub + self['sky2d'].data
@@ -691,6 +693,9 @@ class Spec2d(imf.Image):
             wav2d_dat = pf.open(self.inspec)[self.hext+7].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
             #print(wav2d_dat.shape)
+        else:
+            wav2d_dat = pf.open(self.inspec)[3].data
+            wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
             
         self.ss_data = self.data
         indata = self.data
@@ -774,7 +779,7 @@ class Spec2d(imf.Image):
         #for i in range(wav2d_dat.shape[0]-1):
             #resamp_data[i] = map_coordinates(indata,  np.array([new_co[i], spatial_grid]), order=5)
         
-        pf.PrimaryHDU(resamp_data.T).writeto(outfile)
+        #pf.PrimaryHDU(resamp_data.T).writeto(outfile)
         if self.dispaxis == "y":
             self.data = resamp_data.T
             self.new_wav2d = new_wav2d.T
@@ -1966,10 +1971,10 @@ class Spec2d(imf.Image):
                     """Here we are not fixing any background polynomial 
                        parameters which means all of them will be fitted to data."""
                     
-                    mods.append(mod)
-                    #b = models.Polynomial1D(degree=0, c0=parm_tab['c0_%d' %j][i],
-                    #                        fixed={'c0' : True})
-                    #mods.append(b)
+                    #mods.append(mod)
+                    b = models.Polynomial1D(degree=0, c0=parm_tab['c0_%d' %j][i],
+                                            fixed={'c0' : True})
+                    mods.append(b)
                 elif isinstance(mod, models.Gaussian1D):
                      
                     g = models.Gaussian1D(amplitude=1, mean=parm_tab['mean_%d' % j][i], 
@@ -2067,6 +2072,8 @@ class Spec2d(imf.Image):
       
         # need to calculate variance
         
+        var = np.ones(self.npix)
+        
         """add sky flux to the spectra """
         if self.sky1d is not None:
             skyflux = self.sky1d['flux']
@@ -2087,13 +2094,13 @@ class Spec2d(imf.Image):
             #wave image
             if use_wavim:
                 spectra.append((title, Spec1d(wav=wav[p], flux=flux[p],
-                                              sky=skyflux)))
+                                              var=var, sky=skyflux)))
             elif self.new_wav2d is not None:
                 spectra.append((title, Spec1d(wav=pwav, flux=flux[p], 
-                                              sky=skyflux)))
+                                              var=var, sky=skyflux)))
             else:
                 spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p], 
-                                              sky=skyflux)))
+                                              var=var, sky=skyflux)))
             
         # adding these two lines so that list named 'spectra' and table
         # named 'flux' is accessible from the function 'extract'.
