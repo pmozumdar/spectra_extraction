@@ -394,8 +394,9 @@ class Spec2d(imf.Image):
                 else:
                     skysub = self.data - sky2d_mod
                     
-                    #pf.PrimaryHDU(skysub).writeto(outfile)
-                    #print(' Wrote sky subtracted data to %s' % outfile)
+                    if outfile is not None:
+                        pf.PrimaryHDU(skysub).writeto(outfile)
+                        print(' Wrote sky subtracted data to %s' % outfile)
                     ## we actually wasn't using sky subtracted data before..we 
                     ## were just plotting it
                     self.data_org = self.data
@@ -466,6 +467,9 @@ class Spec2d(imf.Image):
             self.data_org = self.data
             skysub = self.data - sky2d
             
+            if outfile is not None:
+                pf.PrimaryHDU(skysub).writeto(outfile)
+                print(' Wrote sky subtracted data to %s' % outfile)
             ## we actually wasn't using sky subtracted data before..we 
             ## were just plotting it
 
@@ -522,10 +526,10 @@ class Spec2d(imf.Image):
         tmpsub[mask] = m
 
         """ Replace the bad pixels in skysub with a median-filtered value """
-        #self.sigma_clip('skysub')
-        #skysub[mask] = self.mean_clip
-        #ssfilt = filters.median_filter(skysub, boxsize)
-        skysub[mask] =  -5000  #ssfilt[mask]
+        self.sigma_clip('skysub')
+        skysub[mask] = self.mean_clip
+        ssfilt = filters.median_filter(skysub, boxsize)
+        skysub[mask] = ssfilt[mask]
         
         """ Add the sky back in and save the final result """
         szapped = skysub + self['sky2d'].data
@@ -538,9 +542,11 @@ class Spec2d(imf.Image):
             self.data = skysub
         """ Store cosmic ray rejected data """
         self['csraysub'] = imf.WcsHDU(skysub, wcsverb=False)
-        #pf.PrimaryHDU(szapped).writeto(outfile)
-        pf.PrimaryHDU(skysub).writeto(outfile)
-        print(' Wrote szapped data to %s' % outfile)
+        
+        if outfile is not None:
+            #pf.PrimaryHDU(szapped).writeto(outfile)
+            pf.PrimaryHDU(skysub).writeto(outfile)
+            print(' Wrote szapped data to %s' % outfile)
 
         """ Clean up """
         del skysub, ssrms, tmpsub, szapped
@@ -747,7 +753,7 @@ class Spec2d(imf.Image):
                 #new_co[i][j] = f(wav2d_dat[i][0])
         
         """ Resample the wavelength data, just as a check """
-        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=5,
+        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=1,
                                     cval=np.nan)
         
         #spatial_grid = np.arange(wav2d_dat.shape[1])
