@@ -489,6 +489,104 @@ class Spec2d(imf.Image):
             del sky2d, skysub 
 
     # -----------------------------------------------------------------------
+    
+    def szap_new(self, infile=None, outfile=None, sp_1=None):
+        """
+        If a median image can be generated from multiple exposures
+        we can use that image to detect pixels hit with cosmic rays 
+        and fill them using the corresponding pixel value in the median 
+        image.
+        """
+        """This is currently written assuming dispersion axis is y """
+        
+        if infile is None:
+            print('\nneed to provide a median image to compare')
+        else:   
+            sp_2 = pf.open(infile)[0].data
+            mask = np.zeros(sp_1.shape, dtype=bool)
+            #print(sp_1.shape)
+
+        for k in range(0, sp_1.shape[self.specaxis], 400):
+            for i in range(0, sp_1.shape[self.spaceaxis], 5):
+                if self.dispaxis == 'y':
+                    sp1 = sp_1[k:k+400, i:i+5]
+                    sp2 = sp_2[k:k+400, i:i+5]
+                else:
+                    sp1 = sp_1[i:i+5, k:k+400]
+                    sp2 = sp_2[i:i+5, k:k+400]
+                    
+                count1, bins1 = np.histogram(sp1.flatten(), bins=1000)
+                count2, bins2 = np.histogram(sp2.flatten(), bins=1000)
+                sm1 = 0
+                sm2 = 0
+                cnt1 = 0
+                cnt2 = 0
+                tot_pix =sp1.flatten().shape[0]
+
+                for j,p in enumerate(count1):
+                    if p > cnt1:
+                        cnt1 = p
+                        max_bin1 = bins1[j+1]
+                    sm1 += p
+                    if sm1/tot_pix >= 0.8 :
+                        border1 = 0.5*(bins1[j+1] + bins1[j])
+                        break
+                #print(border)
+                for j,p in enumerate(count2):
+                    if p > cnt2:
+                        cnt2 = p
+                        max_bin2 = 0.5*(bins2[j+1] + bins2[j])
+                    sm2 += p
+                    if sm2/tot_pix >= 0.8 :
+                        border2 = bins2[j+1]
+                        break
+
+                a = np.where(sp1>border1)
+                a =np.transpose(a)
+
+                if abs(border1 - max_bin1) < 50 :
+                    mp = 50    #/ abs(border1 - max_bin1)
+                elif abs(border1 - max_bin1) < 100 :
+                    mp = 150
+                elif abs(border1 - max_bin1) < 300:
+                    mp = 200
+                else:
+                    mp = 400
+
+                for j, p in enumerate(a):
+
+                    #print(sp2[p[0]][p[1]])
+                    if sp2[p[0]][p[1]] >0 :
+                        #pass 
+                        if sp1[p[0]][p[1]] > (sp2[p[0]][p[1]]+mp) :
+                            mask[k+p[0]][i+p[1]] =1 
+                    else:
+                        if sp1[p[0]][p[1]] > 3*border1 :
+                            mask[k+p[0]][i+p[1]] =1
+
+        #print(mask)
+        sp_1[mask] = sp_2[mask]
+
+        mf =  (sp_1 > 200) | (sp_1 < -100)
+
+        for k, p in enumerate(np.transpose(np.where(mf==True))):
+            mask[p[0]][p[1]] = 1
+            reg = sp_1[p[0]-10: p[0]+10, p[1]:p[1]+1]
+            sp_1[p[0]][p[1]] = np.median(reg)
+
+            #d[mask] = fill[mask] 
+            #mm = m.astype('bool') | mask
+        print("\nFrom now cosmic ray rejected data will be used\n")    
+        self.data = sp_1
+        self.szap_mask = mask.astype(int)
+        
+        if outfile is not None:
+            #pf.PrimaryHDU(szapped).writeto(outfile)
+            pf.PrimaryHDU(sp_1).writeto(outfile)
+            print(' Wrote szapped data to %s' % outfile)
+
+        #return sp_1, mask.astype(int)
+    # -----------------------------------------------------------------------
     # adding a new parameter 'use_skymod' to pass this parameter to the
     # function subtract_sky_2d(). Also not storing 'szapped' data by 
     # making outfile=None
@@ -2244,11 +2342,12 @@ class Spec2d(imf.Image):
         Set up a 2d background grid (think about doing this as part of a call
         to the sky subtraction routine in the future)
         """
-        tmp = self.data.copy()
-        tmp[apmask] = np.nan
-        bkgd = np.nanmedian(tmp, axis=self.spaceaxis)
-        bkgd2d = bkgd.repeat(self.nspat).reshape((self.npix, self.nspat)).T
-        del tmp
+        if self.sky1d is None:
+            tmp = self.data.copy()
+            tmp[apmask] = np.nan
+            bkgd = np.nanmedian(tmp, axis=self.spaceaxis)
+            bkgd2d = bkgd.repeat(self.nspat).reshape((self.npix, self.nspat)).T
+            del tmp
 
         """
         Create the total weight array, combining (1) the aperture profile,
