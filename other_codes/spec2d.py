@@ -2290,7 +2290,23 @@ class Spec2d(imf.Image):
         var[nanvar] = 1.e9
 
         """ Get the wavelength/pixel vector """
-        self.get_wavelength()
+        if self.new_wav2d is not None:
+            tmpwav = self.new_wav2d.copy()
+            """
+            Compress the wavelength along the spatial axis
+            """
+            pwav = np.median(tmpwav, axis=self.spaceaxis)
+            for i in range(9, -1, -1):
+                if np.isnan(pwav[i]) :
+                    pwav[i] = pwav[i+1]- self.disp
+                
+            for i in range(-10, 0):
+                if np.isnan(pwav[i]):
+                    pwav[i] = pwav[i-1] + self.disp
+                    
+            self.wavelength = pwav
+        else:
+            self.get_wavelength()
 
         """
         Save the result as a Spec1d instance
