@@ -330,7 +330,7 @@ class Spec2d(imf.Image):
                 print('Found %d NaNs in the two-dimensional spectrum' % nnan)
 
             """ First replace the NaNs with a temporary value """
-            self.data[nanmask] = -10 #-999
+            self.data[nanmask] = -1 #-999
 
             """
             Now find the median sky values by calling the subtract_sky_2d
@@ -695,12 +695,12 @@ class Spec2d(imf.Image):
         """
         """First trim the 2d wave image as per data"""
         
-        if self.hext >0 :
+        if self.hext==12 :
             wav2d_dat = pf.open(self.inspec)[self.hext+7].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
             #print(wav2d_dat.shape)
         else:
-            wav2d_dat = pf.open(self.inspec)[3].data
+            wav2d_dat = pf.open(self.inspec)[4].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
             
         self.ss_data = self.data
@@ -1387,7 +1387,8 @@ class Spec2d(imf.Image):
     def fit_poly_to_trace(self, coarsepars, mod0, fitorder=None,
                           fitrange=None, nsig=3.0, doplot=True,
                           markformat='bo', ylabel='default',
-                          title='default', axes=None, verbose=True):
+                          title='default', axes=None, verbose=True,
+                          polyorder=3):
 
         """
         Select the region of the spectrum to use when fitting polynomials
@@ -1462,7 +1463,7 @@ class Spec2d(imf.Image):
             if isinstance(fitorder, dict) and p in fitorder.keys():
                 polyorder = int(fitorder[p])
             else:
-                polyorder = 3
+                polyorder = polyorder
 
             """ Fit a polynomial to the trace parameter """
             if polyorder == -1:
@@ -1623,7 +1624,8 @@ class Spec2d(imf.Image):
     # different order.
     def trace_spectrum(self, mod0, ngauss=1, stepsize='default', meantol=0.5,
                        fitrange=None, fitorder={'mean': 3, 'stddev': 4},
-                       doplot=True, axes=None, verbose=True, debug=False):
+                       doplot=True, axes=None, verbose=True, debug=False,
+                       polyorder=3):
         """
         Fits a gaussian plus background to the spatial profile of the spectrum
          This is done in binned segments, because for nearly all cases the SNR
@@ -1670,7 +1672,8 @@ class Spec2d(imf.Image):
         """ Fit a polynomial to the location of the trace """
         polypars, exclude_masks = \
             self.fit_poly_to_trace(coarsepars, mod0, fitrange=fitrange,
-                                   fitorder=fitorder, axes=axes)
+                                   fitorder=fitorder, axes=axes,
+                                  polyorder=polyorder)
         return polypars
     
     # -----------------------------------------------------------------------
@@ -1704,7 +1707,10 @@ class Spec2d(imf.Image):
         #y2d, x2d = np.indices(self['input'].data.shape)
         # If we use self['input'] it doesn't take into account if any 
         # trimming has been done to the data
-        y2d, x2d = np.indices(self.data.shape)
+        if self.dispaxis == "x":
+            y2d, x2d = np.indices(self.data.shape)
+        else:
+            x2d, y2d = np.indices(self.data.shape)
         #print(self['input'].data.shape)
         #print(self.data.shape)
         #print(y2d)
@@ -1755,11 +1761,13 @@ class Spec2d(imf.Image):
                 because the 'orientation' of the model set is the 
                 opposite to the orientation of the data
                 """
-                ##temporary solution ..need to fix 
+                ##temporary solution ..need to fix
                 if self.dispaxis == "x":
                     profdat += (mod(y2d.T)).T
-                    profmods.append(mod)
-                    
+                else:
+                    profdat += (mod(y2d))
+                profmods.append(mod)
+
                 amp0 = -1
                 
                 #print(np.shape(profdat))
@@ -1797,10 +1805,12 @@ class Spec2d(imf.Image):
                 because the 'orientation' of the model set is the 
                 opposite to the orientation of the data
                 """
-                ##temporary solution ..need to fix 
+                ##temporary solution ..need to fix
                 if self.dispaxis == "x":
                     profdat += (mod(y2d.T)).T
-                    profmods.append(mod)
+                else:
+                    profdat += (mod(y2d))
+                profmods.append(mod)
                     
                 amp0 = -1
                 
@@ -1815,21 +1825,21 @@ class Spec2d(imf.Image):
 
         """ Normalize the profile in the spatial direction """
         ##temporary solution ..need to fix 
+        
+        Pnorm = (profdat.sum(axis=self.spaceaxis))
+        #print('Pnorm:' %Pnorm)
+
+        newdim = (self.npix, self.nspat)
+        #print(newdim)
         if self.dispaxis == "x":
-            Pnorm = (profdat.sum(axis=self.spaceaxis))
-            #print('Pnorm:' %Pnorm)
-
-            newdim = (self.npix, self.nspat)
-            #print(newdim)
             Pnorm = Pnorm.repeat(self.nspat).reshape(newdim).T
-            #print('Pnorm after:\n')
-            #print(Pnorm)
-
-            profdat /= Pnorm
-            
         else:
-            profdat = 0
-            profmods = 0
+            Pnorm = Pnorm.repeat(self.nspat).reshape(newdim)
+        #print('Pnorm after:\n')
+        #print(Pnorm)
+
+        profdat /= Pnorm
+            
         #print(profdat)
         """
         Clean up and return the profile and the model sets used to
@@ -1848,7 +1858,7 @@ class Spec2d(imf.Image):
     def find_and_trace(self, mod0=None, ngauss=1, bgorder=0, stepsize='default',
                        fitorder={'mean_1': 3, 'stddev_1': 4},
                        fitrange=None, doplot=True, do_subplot=True,
-                       axes=None, verbose=True):
+                       axes=None, verbose=True, polyorder=3):
 
         """
         The first step in the spectroscopy reduction process.
@@ -1895,7 +1905,8 @@ class Spec2d(imf.Image):
         polypars = \
             self.trace_spectrum(mod0, ngauss=ngauss, stepsize=stepsize,
                                 fitorder=fitorder, fitrange=fitrange,
-                                doplot=doplot, axes=axes, verbose=verbose)
+                                doplot=doplot, axes=axes, verbose=verbose,
+                                polyorder=polyorder)
 
         self.prof2d, self.profmods, self.parm_tab = self.make_prof2d(polypars, mod0)
 
@@ -1905,10 +1916,8 @@ class Spec2d(imf.Image):
         extraction code has been updated to use the prof2d array, then
         these two lines will be deleted.
         """
-        ##temporary solution ..need to fix 
-        #if self.dispaxis == "x":
-            #self.mu = self.profmods[0].mean.value
-            #self.sig = self.profmods[0].stddev.value
+        self.mu = self.profmods[0].mean.value
+        self.sig = self.profmods[0].stddev.value
 
     # -----------------------------------------------------------------------
     #adding new parameter 'use_wavim' to give the option to use pypeit
