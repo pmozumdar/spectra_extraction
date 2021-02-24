@@ -134,6 +134,7 @@ class Spec2d(imf.Image):
         self.hext = hext
         self.inspec = inspec
         self.new_wav2d = None
+        self.transpose = False
 
         """
         Read in the data and call the superclass initialization for useful
@@ -172,6 +173,7 @@ class Spec2d(imf.Image):
         #print(data)
         if transpose:
             self.data = data.transpose()
+            self.transpose = True
         else:
             self.data = data
 
@@ -187,6 +189,15 @@ class Spec2d(imf.Image):
                 self.vardata = vdata.transpose()
             else:
                 self.vardata = vdata
+        else:
+            if hext==12:
+                in_var = pf.open(inspec)[hext+1].data[ymin:ymax, xmin:xmax]
+                vdata = 1./in_var
+                if transpose:
+                    self.vardata = vdata.transpose()
+                else:
+                    self.vardata = vdata
+                
 
         """ Set other variables and report results """
         self.xmin = xmin
@@ -490,7 +501,7 @@ class Spec2d(imf.Image):
 
     # -----------------------------------------------------------------------
     
-    def szap_new(self, infile=None, outfile=None, sp_1=None):
+    def szap_new(self, infile=None, outfile=None):
         """
         If a median image can be generated from multiple exposures
         we can use that image to detect pixels hit with cosmic rays 
@@ -503,18 +514,19 @@ class Spec2d(imf.Image):
             print('\nneed to provide a median image to compare')
         else:   
             sp_2 = pf.open(infile)[0].data
+            if self.dispaxis == 'x':
+                sp_1 = self.data
+                sp_1 = sp_1.T
+            else:
+                sp_1 = self.data
             mask = np.zeros(sp_1.shape, dtype=bool)
             #print(sp_1.shape)
 
-        for k in range(0, sp_1.shape[self.specaxis], 400):
-            for i in range(0, sp_1.shape[self.spaceaxis], 5):
-                if self.dispaxis == 'y':
-                    sp1 = sp_1[k:k+400, i:i+5]
-                    sp2 = sp_2[k:k+400, i:i+5]
-                else:
-                    sp1 = sp_1[i:i+5, k:k+400]
-                    sp2 = sp_2[i:i+5, k:k+400]
-                    
+        for k in range(0, sp_1.shape[0], 400):
+            for i in range(0, sp_1.shape[1], 5):
+                sp1 = sp_1[k:k+400, i:i+5]
+                sp2 = sp_2[k:k+400, i:i+5]
+                 
                 count1, bins1 = np.histogram(sp1.flatten(), bins=1000)
                 count2, bins2 = np.histogram(sp2.flatten(), bins=1000)
                 sm1 = 0
@@ -576,13 +588,17 @@ class Spec2d(imf.Image):
 
             #d[mask] = fill[mask] 
             #mm = m.astype('bool') | mask
-        print("\nFrom now cosmic ray rejected data will be used\n")    
-        self.data = sp_1
-        self.szap_mask = mask.astype(int)
+        print("\nFrom now cosmic ray rejected data will be used\n")
+        if self.dispaxis == 'x':
+            self.data = sp_1.T
+            self.szap_mask = mask.astype(int).T
+        else:
+            self.data = sp_1
+            self.szap_mask = mask.astype(int)
         
         if outfile is not None:
             #pf.PrimaryHDU(szapped).writeto(outfile)
-            pf.PrimaryHDU(sp_1).writeto(outfile)
+            pf.PrimaryHDU(self.data).writeto(outfile)
             print(' Wrote szapped data to %s' % outfile)
 
         #return sp_1, mask.astype(int)
@@ -796,6 +812,9 @@ class Spec2d(imf.Image):
         if self.hext==12 :
             wav2d_dat = pf.open(self.inspec)[self.hext+7].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
+            
+            if self.transpose:
+                wav2d_dat = wav2d_dat.T
             #print(wav2d_dat.shape)
         else:
             wav2d_dat = pf.open(self.inspec)[4].data
@@ -818,7 +837,6 @@ class Spec2d(imf.Image):
         #disp = np.polyfit(spec_pix, wav2d_dat , deg=1)[0]
         if doplot:
             plt.plot(np.arange(wav2d_dat.shape[0]), disp, '.', markersize=10)
-            #plt.plot(np.arange(wav2d_dat.shape[1]), disp, '.', markersize=10)
             plt.xlabel("spatial axis")
             plt.ylabel("Dispersion")
             plt.figure()
@@ -840,33 +858,14 @@ class Spec2d(imf.Image):
         xdiff = (wmin + disp * newcoords[1] - wav2d_dat) / disp
         newcoords[1] += xdiff
         
-        #new_co = np.zeros(wav2d_dat.shape)
-        
-        #for i in range(wav2d_dat.shape[0]-1):
-            #x = np.array([i, i+1])
-            #for j in range(wav2d_dat.shape[1]):
-                #y = np.array([wav2d_dat[i][j], wav2d_dat[i+1][j]])
-                #print(y)
-                #f = ip.interp1d(y, x, kind='slinear')    #, fill_value='extrapolate')
-                #new_co[i][j] = f(wav2d_dat[i][0])
-        
         """ Resample the wavelength data, just as a check """
         new_wav2d = map_coordinates(wav2d_dat, newcoords, order=1,
                                     cval=np.nan)
-        
-        #spatial_grid = np.arange(wav2d_dat.shape[1])
-        #new_wavim = np.zeros(wav2d_dat.shape)
-
-        #for i in range(wav2d_dat.shape[0]-1):
-            #new_wavim[i] = map_coordinates(wav2d_dat,  np.array([new_co[i], spatial_grid]), order=5)
-
         if doplot:
             diff = []
             for i in range(wav2d_dat.shape[1]):
-            #for i in range(wav2d_dat.shape[0]):
                 diff.append(np.max(new_wav2d[:, i:i+1]) - 
                             np.min(new_wav2d[:, i:i+1]))
-                #diff.append(round(np.max(new_wavim[i:i+1, : ]) - np.min(new_wavim[i:i+1, : ]), 4))
                 
             plt.plot(np.arange(wav2d_dat.shape[1]), diff, '.')
             #plt.plot(spec_pix, diff , '.')
@@ -879,9 +878,6 @@ class Spec2d(imf.Image):
         
         resamp_data = map_coordinates(indata, newcoords, order=resamp_ord,
                                       cval=np.nan)
-        #resamp_data = np.zeros(wav2d_dat.shape)
-        #for i in range(wav2d_dat.shape[0]-1):
-            #resamp_data[i] = map_coordinates(indata,  np.array([new_co[i], spatial_grid]), order=5)
         
         #pf.PrimaryHDU(resamp_data.T).writeto(outfile)
         if self.dispaxis == "y":
@@ -898,6 +894,106 @@ class Spec2d(imf.Image):
               " resampled in place of the coordinateds whcih rectify"\
               " the tilted wave image")
 
+# ----------------------------------------------------------------------------------
+
+    def do_waverect_new(self, doplot=False, outfile=None):
+        """
+        If 2d wave image is tilted then this function can rectify for it
+        by calculating a new coordinate grid in pixel numbers. Then this 
+        new coordinates will be used to resample the data. This is the way
+        I tried to do wave rectification. This function acts assuming
+        the y axis as the dispersion axis.
+        """
+        """First trim the 2d wave image as per data"""
+        
+        if self.hext==12 :
+            wav2d_dat = pf.open(self.inspec)[self.hext+7].data
+            wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
+           
+            #print(wav2d_dat.shape)
+        else:
+            wav2d_dat = pf.open(self.inspec)[4].data
+            wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
+            
+        self.ss_data = self.data
+        indata = self.data
+        
+        """ Set the dispersion axis direction """
+        
+        if self.dispaxis == "x":
+            #wav2d_dat = wav2d_dat.T
+            indata = indata.T
+        
+        """Calculate the dispersion """
+        
+        spec_pix = np.arange(self.npix)
+        disp = np.polyfit(spec_pix, wav2d_dat, deg=1)[0]
+        if doplot:
+            plt.plot(np.arange(wav2d_dat.shape[1]), disp, '.', markersize=10)
+            plt.xlabel("spatial axis")
+            plt.ylabel("Dispersion")
+            plt.figure()
+        disp = round(np.mean(disp), 2)
+        self.disp = disp
+        print("Dispersion : %f" %disp)
+        
+        """ Calculate coordinates for the resampling """
+        
+        new_co = np.zeros(wav2d_dat.shape)
+        
+        for i in range(wav2d_dat.shape[0]-1):
+            x = np.array([i, i+1])
+            for j in range(wav2d_dat.shape[1]):
+                y = np.array([wav2d_dat[i][j], wav2d_dat[i+1][j]])
+                f = ip.interp1d(y, x, kind='slinear')    #, fill_value='extrapolate')
+                new_co[i][j] = f(wav2d_dat[i][0])
+        
+        """ Resample the wavelength data, just as a check """
+        spatial_grid = np.arange(wav2d_dat.shape[1])
+        new_wav2d = np.zeros(wav2d_dat.shape)
+
+        for i in range(wav2d_dat.shape[0]-1):
+            new_wav2d[i] = map_coordinates(wav2d_dat,  np.array([new_co[i], spatial_grid]), order=5)
+
+        if doplot:
+            diff = []
+             
+            for i in range(wav2d_dat.shape[0]):
+                 diff.append(round(np.max(new_wav2d[i:i+1, : ]) -
+                                   np.min(new_wav2d[i:i+1, : ]), 4))
+                
+            plt.plot(spec_pix, diff , '.')
+            plt.xlabel('dispersion axis')
+            plt.ylabel('Angstrom')
+            plt.title("Difference between maximun and minimum wavelength"\
+                      " in each spec pixel")
+        
+        """ Finally resample sky-subtracted and szapped data """
+        
+        resamp_data = np.zeros(wav2d_dat.shape)
+        for i in range(wav2d_dat.shape[0]-1):
+            resamp_data[i] = map_coordinates(indata,  np.array([new_co[i], spatial_grid]), order=5)
+        
+        #pf.PrimaryHDU(resamp_data.T).writeto(outfile)
+        
+        self.data[0:-1, :] = resamp_data[0:-1, :]
+        self.new_wav2d[-1] = wav2d_dat[-1]
+        
+        if self.dispaxis == "x":
+            self.data = resamp_data.T
+            self.new_wav2d = new_wav2d.T
+        else:
+            self.data = resamp_data
+            self.new_wav2d = new_wav2d
+        #
+            
+        self.fix_nans_spec(verbose=True)
+        
+        print("\nsky subtracted and cosmic ray rejected data has been"\
+              " resampled in place of the coordinateds whcih rectify"\
+              " the tilted wave image")
+
+            
 # ----------------------------------------------------------------------------------
 
     def compress_spec(self, pixrange=None):
@@ -2370,8 +2466,12 @@ class Spec2d(imf.Image):
         data = self.data
         data[nansci] = 0.
         wtdenom[wtdenom == 0] = 1.e9
-        flux = ((self.data - bkgd2d) *
+        if self.sky1d is None:
+            flux = ((self.data - bkgd2d) *
                 self.extwt).sum(axis=self.spaceaxis) / wtdenom
+        else:
+            flux = (self.data  *
+                  self.extwt).sum(axis=self.spaceaxis) / wtdenom
 
         """
         Compute the proper variance.
@@ -2417,18 +2517,27 @@ class Spec2d(imf.Image):
             owav = self.wavelength[extmin:extmax]
             oflux = flux[extmin:extmax]
             ovar = var[extmin:extmax]
-            sky = bkgd[extmin:extmax]
+            if self.sky1d is None:
+                sky = bkgd[extmin:extmax]
+            else:
+                sky = self.sky1d['flux'][extmin:extmax]
         else:
             owav = self.wavelength.copy()
             oflux = flux
             ovar = var
-            sky = bkgd
+            if self.sky1d is None:
+                sky = bkgd
+            else:
+                sky = self.sky1d['flux']
         self.spec1d = Spec1d(wav=owav, flux=oflux, var=ovar, sky=sky,
                              verbose=verbose)
         self.apmask = apmask
 
         """ Clean up """
-        del(invar, flux, var, bkgd, owav, oflux, ovar, sky)
+        if self.sky1d is None:
+            del(invar, flux, var, bkgd, owav, oflux, ovar, sky)
+        else:
+            del(invar, flux, var, owav, oflux, ovar, sky)
 
     # -----------------------------------------------------------------------
     #adding new parameter 'use_wavim' to give the option to use pypeit
