@@ -859,7 +859,7 @@ class Spec2d(imf.Image):
         newcoords[1] += xdiff
         
         """ Resample the wavelength data, just as a check """
-        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=1,
+        new_wav2d = map_coordinates(wav2d_dat, newcoords, order=resamp_ord,
                                     cval=np.nan)
         if doplot:
             diff = []
@@ -1421,12 +1421,13 @@ class Spec2d(imf.Image):
          set the dispaxis to "y" with the set_dispaxis method in this Spec2d
          class.
         """
-        #print('in locate_trace')
+        #print(pixrange)
 
         """ Start by compressing the data, but don't show it yet """
         #print('going to spatial_profile')
         profile = self.spatial_profile(pixrange, doplot=False, 
                                        verbose=verbose)
+        #print(profile)
 
         """
         Fit a shape -- most commonly a single Gaussian -- to the spatial
@@ -2050,7 +2051,7 @@ class Spec2d(imf.Image):
     # otherwise will not run locate_trace. We don't want to set axes
     # beforehand as don't know how many parametrs are there.
     def find_and_trace(self, mod0=None, ngauss=1, bgorder=0, stepsize='default',
-                       fitorder={'mean_1': 3, 'stddev_1': 4},
+                       fitorder={'mean_1': 3, 'stddev_1': 4}, pixrange=None,
                        fitrange=None, doplot=True, do_subplot=True,
                        axes=None, verbose=True, polyorder=3):
 
@@ -2092,7 +2093,7 @@ class Spec2d(imf.Image):
         #print('going to locate_tace')
         if mod0 is None:
             self.profile, self.mod0 = \
-                self.locate_trace(doplot=doplot, ngauss=ngauss, pixrange=fitrange,
+                self.locate_trace(doplot=doplot, ngauss=ngauss, pixrange=pixrange,
                               axes=axes, verbose=verbose)
             mod0 = self.mod0
         # Here parameter 'self.mod0' has been changed to 'mod0'. 
