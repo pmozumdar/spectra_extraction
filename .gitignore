@@ -131,6 +131,7 @@ dmypy.json
 #directories
 cdfutils_test/
 specim_test/
+keckcode_test/
 
 #data files
 *.fits
