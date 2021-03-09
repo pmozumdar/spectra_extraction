@@ -23,7 +23,11 @@ from matplotlib import pyplot as plt
 from astropy.io import fits as pf
 from astropy.table import Table
 
-import special_functions as sf
+"""I guess we don't need special_functions module if we are 
+using modelfit. Reminder, I have also modified __init__.py
+file in the esiredux directory because it looks for this 
+special function module."""
+#import special_functions as sf
 
 from cdfutils import datafuncs as df
 #from specim import specfuncs as ss
