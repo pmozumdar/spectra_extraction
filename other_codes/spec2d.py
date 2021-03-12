@@ -1591,12 +1591,18 @@ class Spec2d(imf.Image):
         to the trace parameters
         """
         x0 = coarsepars['x']
+        print(x0)
         if fitrange is None:
             xmask = np.ones(len(x0), dtype=bool)
             fittab = coarsepars.copy()
         else:
+            """If fitrange[1] is -1, it creates some logical
+               misunderstanding below. We need to translate it properly"""
+            if fitrange[1] < 0:
+                fitrange[1] = np.arange(0, self.npix)[fitrange[1]]
             xmask = np.logical_and(x0 >= fitrange[0], x0 < fitrange[1])
             fittab = coarsepars[xmask]
+            print(coarsepars['x'][xmask])
 
         """
         Set up containers to hold the polynomial fit parameters and the
@@ -1652,6 +1658,7 @@ class Spec2d(imf.Image):
             fitmask = np.logical_and(xmask, goodmask)
             exclude_masks[p] = np.logical_not(fitmask)
             x = coarsepars['x'][fitmask]
+            print(x)
             data = data0[fitmask]
             fitinfo[p] = [x, data]
 
@@ -2112,8 +2119,9 @@ class Spec2d(imf.Image):
         extraction code has been updated to use the prof2d array, then
         these two lines will be deleted.
         """
-        self.mu = self.profmods[0].mean.value
-        self.sig = self.profmods[0].stddev.value
+        if isinstance(mod0, models.Gaussian1D): 
+            self.mu = self.profmods[0].mean.value
+            self.sig = self.profmods[0].stddev.value
 
     # -----------------------------------------------------------------------
     #adding new parameter 'use_wavim' to give the option to use pypeit
@@ -2214,7 +2222,7 @@ class Spec2d(imf.Image):
                 print(' Extraction range (pixels): 0 - %d' % self.npix)
             else:
                 print(' Extraction range (pixels): %d - %d' %
-                      extrange[0], extrange[1])
+                      (extrange[0], extrange[1]))
         #fitpars, covar = self.fit_slices(mod0, 1, mu0arr=self.mu,
         #                                 sig0arr=self.sig)
         
