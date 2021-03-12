@@ -1069,6 +1069,7 @@ class Spec2d(imf.Image):
         function find_and_trace().
         """
         self.profile = profile
+       
         """
         Plot the compressed spectrum, showing the best-fit Gaussian if
         requested
@@ -2304,15 +2305,34 @@ class Spec2d(imf.Image):
             
             #new change to incorporate wavelength extraction from pypeit generated
             #wave image
+            """If extrange is not none then we need to cut the spectrum"""
+            
             if use_wavim:
-                spectra.append((title, Spec1d(wav=wav[p], flux=flux[p],
-                                              var=var, sky=skyflux)))
+                wav = wav[p]    
             elif self.new_wav2d is not None:
-                spectra.append((title, Spec1d(wav=pwav, flux=flux[p], 
-                                              var=var, sky=skyflux)))
+                wav = pwav     
             else:
-                spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p], 
-                                              var=var, sky=skyflux)))
+                wav = self.wavelength
+                 
+            if extrange is not None:
+                extmin = extrange[0]
+                extmax = extrange[1]
+                owav = wav[extmin:extmax]
+                oflux = flux[p][extmin:extmax]
+                ovar = var[extmin:extmax]
+                sky = skyflux[extmin:extmax]    
+            else:
+                owav = wav
+                oflux = flux[p]
+                ovar = var
+                sky = skyflux
+             
+             
+            spectra.append((title, Spec1d(wav=owav, flux=oflux,
+                                              var=ovar, sky=sky)))
+             
+            #spectra.append((title, Spec1d(wav=self.wavelength, flux=flux[p], 
+            #                                 var=var, sky=skyflux)))
             
         # adding these two lines so that list named 'spectra' and table
         # named 'flux' is accessible from the function 'extract'.
