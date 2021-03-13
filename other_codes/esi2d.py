@@ -204,7 +204,7 @@ class Esi2d(ech2d.Ech2d):
     def _extract_cdf(self, spec, info, muorder=-1, sigorder=-1,
                      apmin=-1., apmax=1., weight='gauss', normalize=False,
                      plot_traces=False, verbose=True, fitorder=None,
-                     method='modelfit'):
+                     method='modelfit', stepsize=None):
         """
 
         Extracts the spectrum from an individual order using the
@@ -234,17 +234,19 @@ class Esi2d(ech2d.Ech2d):
             print('%s' % info['name'])
         
         if spec.mod0 is None:
-            spec.find_and_trace(doplot=plot_traces, muorder=muorder,
-                                sigorder=sigorder, fitrange=[B, R],
-                                verbose=False)
+            pass
+            #spec.find_and_trace(doplot=plot_traces, muorder=muorder,
+            #                    sigorder=sigorder, fitrange=[B, R],
+            #                    verbose=False)
         else:
-            print(spec.mod0)
+            #print(spec.mod0)
             spec.find_and_trace(mod0=spec.mod0, doplot=plot_traces,
-                                muorder=muorder, sigorder=sigorder,
                                 fitrange=[B, R], verbose=False,
-                                fitorder=fitorder)
-        spec.extract(method=method, extrange=[B, R], weight=weight, 
-                     doplot=True, verbose=True)
+                                fitorder=fitorder, stepsize=stepsize)
+            plt.show()
+        if spec.mod0 is not None:
+            spec.extract(method=method, extrange=[B, R], weight=weight, 
+                         doplot=True, verbose=True)
 
         """
         Also normalize the flux and variance of the extracted
@@ -263,7 +265,7 @@ class Esi2d(ech2d.Ech2d):
                     plot_traces=False, plot_extracted=True, fitorder=None,
                     xmin=3840., xmax=10910., ymin=-0.2, ymax=5.,
                     apnum=None, showfit=False, verbose=True, 
-                    cdf_method='modelfit', **kwargs):
+                    cdf_method='modelfit', stepsize='default', **kwargs):
         """
         Goes through each of the 10 orders on the ESI spectrograph and
         extracts the spectrum via one of two procedures:
@@ -301,18 +303,19 @@ class Esi2d(ech2d.Ech2d):
                 self._extract_cdf(spec, info, plot_traces=plot_traces,
                                   muorder=muorder, sigorder=sigorder,
                                   apmin=apmin, apmax=apmax, weight=weight,
-                                  fitorder=fitorder, method=cdf_method)
+                                  fitorder=fitorder, method=cdf_method,
+                                  stepsize=stepsize)
             elif method == 'oldham':
                 self._extract_oldham(spec, info, apcent, nsig, normap=normap)
             
-            if cdf_method == 'modelfit'
+            if cdf_method == 'modelfit':
                 speclist.append(spec.spectra)
             else:
                 speclist.append(spec.spec1d)
 
         """ Put the extracted spectra into an Echelle1d structure """
-        if cdf_method == 'modelfit' :
-            pass
+        if cdf_method == 'modelfit':
+            outspec = speclist
         else:
             outspec = esi1d.Esi1d(speclist)
 
