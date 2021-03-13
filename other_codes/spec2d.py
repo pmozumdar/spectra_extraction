@@ -1253,7 +1253,7 @@ class Spec2d(imf.Image):
             plt.xlabel('Spatial direction (0-indexed)')
             plt.ylabel('Relative Flux')
             plt.title('Individual profile component in fitted model')
-            #plt.show()
+            plt.show()
 
             prompt = input('\nDo you want to start over ? : type yes/no\n'
                                                                    ).strip().lower()
@@ -1591,7 +1591,6 @@ class Spec2d(imf.Image):
         to the trace parameters
         """
         x0 = coarsepars['x']
-        print(x0)
         if fitrange is None:
             xmask = np.ones(len(x0), dtype=bool)
             fittab = coarsepars.copy()
@@ -1599,10 +1598,9 @@ class Spec2d(imf.Image):
             """If fitrange[1] is -1, it creates some logical
                misunderstanding below. We need to translate it properly"""
             if fitrange[1] < 0:
-                fitrange[1] = np.arange(0, self.npix)[fitrange[1]]
+                fitrange[1] = self.npix + fitrange[1] + 1
             xmask = np.logical_and(x0 >= fitrange[0], x0 < fitrange[1])
             fittab = coarsepars[xmask]
-            print(coarsepars['x'][xmask])
 
         """
         Set up containers to hold the polynomial fit parameters and the
@@ -1658,7 +1656,6 @@ class Spec2d(imf.Image):
             fitmask = np.logical_and(xmask, goodmask)
             exclude_masks[p] = np.logical_not(fitmask)
             x = coarsepars['x'][fitmask]
-            print(x)
             data = data0[fitmask]
             fitinfo[p] = [x, data]
 
@@ -1828,7 +1825,7 @@ class Spec2d(imf.Image):
     def trace_spectrum(self, mod0, ngauss=1, stepsize='default', meantol=0.5,
                        fitrange=None, fitorder={'mean': 3, 'stddev': 4},
                        doplot=True, axes=None, verbose=True, debug=False,
-                       polyorder=3):
+                       polyorder=2):
         """
         Fits a gaussian plus background to the spatial profile of the spectrum
          This is done in binned segments, because for nearly all cases the SNR
@@ -2061,7 +2058,7 @@ class Spec2d(imf.Image):
     def find_and_trace(self, mod0=None, ngauss=1, bgorder=0, stepsize='default',
                        fitorder={'mean_1': 3, 'stddev_1': 4}, pixrange=None,
                        fitrange=None, doplot=True, do_subplot=True,
-                       axes=None, verbose=True, polyorder=3):
+                       axes=None, verbose=True, polyorder=2):
 
         """
         The first step in the spectroscopy reduction process.
@@ -2221,6 +2218,8 @@ class Spec2d(imf.Image):
             if extrange is None:
                 print(' Extraction range (pixels): 0 - %d' % self.npix)
             else:
+                if extrange[1] < 0:
+                    extrange[1] = self.npix + extrange[1] + 1
                 print(' Extraction range (pixels): %d - %d' %
                       (extrange[0], extrange[1]))
         #fitpars, covar = self.fit_slices(mod0, 1, mu0arr=self.mu,
