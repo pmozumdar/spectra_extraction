@@ -1529,16 +1529,24 @@ class Spec2d(imf.Image):
         for i, x in enumerate(xstep):
             """ Create the data slice"""
             pixrange = [x, x+stepsize]
-            #print('pixrange: ')
-            #print(pixrange)
-            #print('going to compress_spec')
             #tmpprof['flux'] = self.compress_spec(pixrange)
             tmpprof.y = self.compress_spec(pixrange)
-            #print('tmpprof_new_%d' %i)
-            #print('tmpprof[flux] from compress_spec and wav for the slice which will be sent to fit_mod')
-            #print(tmpprof['flux'])
-            #print(tmpprof)
-            #print('going to fit_mod')
+            
+            """If 2d variance data is avaiable we can use it to do weighted
+               fitting. In that case we need to provide a variance vector 
+               in 'tmpprof'. Only implemented currently for spatial pixelwise
+               fitting."""
+
+            if usevar:
+                if stepsize == 1:
+                    if self.specaxis == 0:
+                        tmpvar = self.vardata[pixrange[0]:pixrange[1], :]
+                    else:
+                        tmpvar = self.vardata[:, pixrange[0]:pixrange[1]]
+
+                    tmpprof.var = np.median(tmpvar, axis=self.specaxis)
+                else:
+                    tmpprof.var = np.ones(tmpprof.x.size)
 
             """ Fix the input model parameters (this code will change) """
             if mu0arr is not None:
@@ -2226,7 +2234,7 @@ class Spec2d(imf.Image):
         #                                 sig0arr=self.sig)
         
         #fitpars, covar = self.fit_slices(mod0, 1, cmp_mods)
-        fitpars, covar = self.fit_slices(cmp_mods, 1)
+        fitpars, covar = self.fit_slices(cmp_mods, 1, usevar=usevar)
         
         # need to calculate integrated flux for each profile
         flux = Table()
