@@ -364,6 +364,26 @@ class Spec2d(imf.Image):
             #    self.data[nanmask] = sk2d[nanmask]
 
     # -----------------------------------------------------------------------
+    def fix_nan_var(self, verbose=False):
+        """
+        Detects NaN's and negative variances within the 2d variance spectrum
+        and replaces them with very big real numbers.
+        """
+        
+        if self.vardata is None:
+            print("\nerror : no 2d vardata is avaiable")
+        else:
+            nanmask = (self.vardata < 0) | (np.isnan(self.vardata)) 
+            nnan = nanmask.sum()
+            if nnan > 0:
+                if verbose:
+                    print('Found %d NaNs in the two-dimensional variance '\
+                          'spectrum' % nnan)
+
+                """ Replace the NaNs with a big value """
+                self.vardata[nanmask] = 9999
+                self.varmask = nanmask
+    # -----------------------------------------------------------------------
     ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
     ## generated sky model. By default it is 'False'.
     def subtract_sky_2d(self, outfile=None, outsky=None, use_skymod=False):
@@ -2234,6 +2254,10 @@ class Spec2d(imf.Image):
         #                                 sig0arr=self.sig)
         
         #fitpars, covar = self.fit_slices(mod0, 1, cmp_mods)
+        
+        if usevar:
+            self.fix_nan_var()
+            
         fitpars, covar = self.fit_slices(cmp_mods, 1, usevar=usevar)
         
         # need to calculate integrated flux for each profile
@@ -2355,6 +2379,7 @@ class Spec2d(imf.Image):
         self.flux = flux
         
         self.fitpars= fitpars
+        self.covar = covar
         
         # enable to return flux, spectra
         return fitpars, covar, flux, spectra
