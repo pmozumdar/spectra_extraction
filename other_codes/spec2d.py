@@ -2260,8 +2260,11 @@ class Spec2d(imf.Image):
             
         fitpars, covar = self.fit_slices(cmp_mods, 1, usevar=usevar)
         
-        # need to calculate integrated flux for each profile
+        """need to calculate integrated flux and modelfit variance 
+        for each profile"""
+        
         flux = Table()
+        
         for i, mod in enumerate(mod0):
             if isinstance(mod, models.Gaussian1D):
                 flux['gaussian_%d' %i] = (sqrt(2. * pi) * fitpars['stddev_%d' %i]
@@ -2322,9 +2325,31 @@ class Spec2d(imf.Image):
         else:    
             self.get_wavelength()
       
-        # need to calculate variance
+        """As other model parameters except amplitudes are fixed then the
+           'param_cov' only provides covariance matrix of the amplitudes.
+           We will treat the diagonal elements as the corresponding variances
+           for the profile in compound model."""
         
-        var = np.ones(self.npix)
+        if usevar:
+            var_spectra = Table()
+            var_list = []
+            mod_var = []
+            
+            for i, p in enumerate(covar):
+                var_list.append(np.diag(p))
+                
+            """Transposing var_list """
+            for column in zip(*var_list):
+                mod_var.append(column)
+            
+            for i, mod in enumerate(mod0):
+                if isinstance(mod, models.Gaussian1D):
+                    var_spectra['gaussian_%d' %i] = mod_var[i-1]
+                    
+                elif isinstance(mod, models.Moffat1D):
+                    var_spectra['moffat_%d' %i] = mod_var[i-1]
+        else:
+            var_spectra = np.ones(self.npix)
         
         """add sky flux to the spectra """
         if self.sky1d is not None:
@@ -2352,7 +2377,12 @@ class Spec2d(imf.Image):
                 wav = pwav     
             else:
                 wav = self.wavelength
-                 
+            
+            if usevar:
+                var = var_spectra[p]
+            else:
+                var = var_spectra
+                
             if extrange is not None:
                 extmin = extrange[0]
                 extmax = extrange[1]
@@ -2380,6 +2410,7 @@ class Spec2d(imf.Image):
         
         self.fitpars= fitpars
         self.covar = covar
+        self.var_spectra = var_spectra
         
         # enable to return flux, spectra
         return fitpars, covar, flux, spectra
