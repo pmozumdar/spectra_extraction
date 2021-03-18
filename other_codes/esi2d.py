@@ -232,7 +232,6 @@ class Esi2d(ech2d.Ech2d):
             fitrange = [B, R]
         else:
             fitrange = fitrange
-        print(fitrange)
 
         """ Trace and then extract the spectrum using the Spec2d methods  """
         if verbose:
@@ -311,7 +310,8 @@ class Esi2d(ech2d.Ech2d):
                 if fit_dict is not None:
                     if info['order'] in fit_dict:
                         fitrange = fit_dict[info['order']]
-                        
+                    else:
+                        fitrange = None        
                 self._extract_cdf(spec, info, plot_traces=plot_traces,
                                   muorder=muorder, sigorder=sigorder,
                                   apmin=apmin, apmax=apmax, weight=weight,
