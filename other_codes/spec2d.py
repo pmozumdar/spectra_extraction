@@ -2259,6 +2259,8 @@ class Spec2d(imf.Image):
             self.fix_nan_var()
             
         fitpars, covar = self.fit_slices(cmp_mods, 1, usevar=usevar)
+        self.fitpars= fitpars
+        self.covar = covar
         
         """need to calculate integrated flux and modelfit variance 
         for each profile"""
@@ -2336,7 +2338,11 @@ class Spec2d(imf.Image):
             mod_var = []
             
             for i, p in enumerate(covar):
-                var_list.append(np.diag(p))
+                if p is None:
+                    v = np.ones(ncomp) * 1.e9
+                    var_list.append(v)
+                else:
+                    var_list.append(np.diag(p))
                 
             """Transposing var_list """
             for column in zip(*var_list):
@@ -2407,9 +2413,6 @@ class Spec2d(imf.Image):
         # named 'flux' is accessible from the function 'extract'.
         self.spectra = spectra
         self.flux = flux
-        
-        self.fitpars= fitpars
-        self.covar = covar
         self.var_spectra = var_spectra
         
         # enable to return flux, spectra
