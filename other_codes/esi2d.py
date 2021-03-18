@@ -204,7 +204,7 @@ class Esi2d(ech2d.Ech2d):
     def _extract_cdf(self, spec, info, muorder=-1, sigorder=-1,
                      apmin=-1., apmax=1., weight='gauss', normalize=False,
                      plot_traces=False, verbose=True, fitorder=None,
-                     method='modelfit', stepsize=None):
+                     method='modelfit', stepsize=None, fitrange=None):
         """
 
         Extracts the spectrum from an individual order using the
@@ -226,8 +226,12 @@ class Esi2d(ech2d.Ech2d):
         spec.apmax = apmax / info['pixscale']
 
         """ Set the range of valid pixels for fitting the trace """
-        B = info['pixmin']
-        R = info['pixmax']
+        if fitrange is None:
+            B = info['pixmin']
+            R = info['pixmax']
+            fitrange = [B, R]
+        else:
+            fitrange = fitrange
 
         """ Trace and then extract the spectrum using the Spec2d methods  """
         if verbose:
@@ -241,11 +245,11 @@ class Esi2d(ech2d.Ech2d):
         else:
             #print(spec.mod0)
             spec.find_and_trace(mod0=spec.mod0, doplot=plot_traces,
-                                fitrange=[B, R], verbose=False,
+                                fitrange=fitrange, verbose=False,
                                 fitorder=fitorder, stepsize=stepsize)
             plt.show()
         if spec.mod0 is not None:
-            spec.extract(method=method, extrange=[B, R], weight=weight, 
+            spec.extract(method=method, extrange=fitrange, weight=weight, 
                          doplot=True, verbose=True)
 
         """
@@ -265,7 +269,8 @@ class Esi2d(ech2d.Ech2d):
                     plot_traces=False, plot_extracted=True, fitorder=None,
                     xmin=3840., xmax=10910., ymin=-0.2, ymax=5.,
                     apnum=None, showfit=False, verbose=True, 
-                    cdf_method='modelfit', stepsize='default', **kwargs):
+                    cdf_method='modelfit', stepsize='default', 
+                    fit_dict=None, fitrange=None, **kwargs):
         """
         Goes through each of the 10 orders on the ESI spectrograph and
         extracts the spectrum via one of two procedures:
@@ -300,11 +305,17 @@ class Esi2d(ech2d.Ech2d):
             print('------------------')
         for spec, info in zip(self, self.ordinfo):
             if method == 'cdf':
+                """User provided fitrange as an element of 'fit_dict'
+                   dictonary where order is key and range is the value."""
+                if fit_dict is not None:
+                    if info['order'] in fit_dict:
+                        fitrange = fit_dict[info['order']]
+                        
                 self._extract_cdf(spec, info, plot_traces=plot_traces,
                                   muorder=muorder, sigorder=sigorder,
                                   apmin=apmin, apmax=apmax, weight=weight,
                                   fitorder=fitorder, method=cdf_method,
-                                  stepsize=stepsize)
+                                  stepsize=stepsize, fitrange=fitrange)
             elif method == 'oldham':
                 self._extract_oldham(spec, info, apcent, nsig, normap=normap)
             
