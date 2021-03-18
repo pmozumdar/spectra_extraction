@@ -232,16 +232,17 @@ class Esi2d(ech2d.Ech2d):
             fitrange = [B, R]
         else:
             fitrange = fitrange
+        print(fitrange)
 
         """ Trace and then extract the spectrum using the Spec2d methods  """
         if verbose:
             print('%s' % info['name'])
         
         if spec.mod0 is None:
-            pass
-            #spec.find_and_trace(doplot=plot_traces, muorder=muorder,
-            #                    sigorder=sigorder, fitrange=[B, R],
-            #                    verbose=False)
+            spec.find_and_trace(doplot=plot_traces, fitorder=fitorder, 
+                                fitrange=fitrange, stepsize=stepsize,
+                                verbose=False)#[B, R],
+            plt.show()
         else:
             #print(spec.mod0)
             spec.find_and_trace(mod0=spec.mod0, doplot=plot_traces,
