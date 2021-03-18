@@ -2144,7 +2144,7 @@ class Spec2d(imf.Image):
         extraction code has been updated to use the prof2d array, then
         these two lines will be deleted.
         """
-        if isinstance(mod0, models.Gaussian1D): 
+        if isinstance(mod0[1], models.Gaussian1D): 
             self.mu = self.profmods[0].mean.value
             self.sig = self.profmods[0].stddev.value
 
@@ -2421,7 +2421,7 @@ class Spec2d(imf.Image):
     # -----------------------------------------------------------------------
 
     def _extract_horne(self, profile, gain=1.0, rdnoise=0.0, extrange=None,
-                       verbose=True):
+                       verbose=True, with_bkgd=False):
         """
 
         STILL TO DO:
@@ -2533,7 +2533,8 @@ class Spec2d(imf.Image):
         Set up a 2d background grid (think about doing this as part of a call
         to the sky subtraction routine in the future)
         """
-        if self.sky1d is None:
+        #if self.sky1d is None :
+        if with_bkgd:
             tmp = self.data.copy()
             tmp[apmask] = np.nan
             bkgd = np.nanmedian(tmp, axis=self.spaceaxis)
@@ -2561,7 +2562,8 @@ class Spec2d(imf.Image):
         data = self.data
         data[nansci] = 0.
         wtdenom[wtdenom == 0] = 1.e9
-        if self.sky1d is None:
+        #if self.sky1d is None:
+        if with_bkgd:
             flux = ((self.data - bkgd2d) *
                 self.extwt).sum(axis=self.spaceaxis) / wtdenom
         else:
@@ -2613,7 +2615,11 @@ class Spec2d(imf.Image):
             oflux = flux[extmin:extmax]
             ovar = var[extmin:extmax]
             if self.sky1d is None:
-                sky = bkgd[extmin:extmax]
+                if with_bkgd:
+                    sky = bkgd[extmin:extmax]
+                else:
+                    sky = np.zeros(self.npix)[extmin:extmax]
+                
             else:
                 sky = self.sky1d['flux'][extmin:extmax]
         else:
@@ -2621,7 +2627,10 @@ class Spec2d(imf.Image):
             oflux = flux
             ovar = var
             if self.sky1d is None:
-                sky = bkgd
+                if with_bkgd:
+                    sky = bkgd
+                else:
+                    sky = np.zeros(self.npix)
             else:
                 sky = self.sky1d['flux']
         self.spec1d = Spec1d(wav=owav, flux=oflux, var=ovar, sky=sky,
@@ -2630,7 +2639,8 @@ class Spec2d(imf.Image):
 
         """ Clean up """
         if self.sky1d is None:
-            del(invar, flux, var, bkgd, owav, oflux, ovar, sky)
+            if with_bkgd:
+                del(invar, flux, var, bkgd, owav, oflux, ovar, sky)
         else:
             del(invar, flux, var, owav, oflux, ovar, sky)
 
