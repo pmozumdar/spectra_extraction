@@ -238,9 +238,10 @@ class Esi2d(ech2d.Ech2d):
             print('%s' % info['name'])
         
         if spec.mod0 is None:
-            spec.find_and_trace(doplot=plot_traces, fitorder=fitorder, 
-                                fitrange=fitrange, stepsize=stepsize,
-                                verbose=False)#[B, R],
+            pass
+            #spec.find_and_trace(doplot=plot_traces, fitorder=fitorder, 
+            #                    fitrange=fitrange, stepsize=stepsize,
+            #                    verbose=False)#[B, R],
             plt.show()
         else:
             #print(spec.mod0)
@@ -327,7 +328,24 @@ class Esi2d(ech2d.Ech2d):
 
         """ Put the extracted spectra into an Echelle1d structure """
         if cdf_method == 'modelfit':
-            outspec = speclist
+            
+             for i, sp in enumerate(self):
+                if sp.mod0 is None:
+                    pass
+                else:
+                    ncomp = sp.mod0.n_submodels - 1 
+                    break
+            outspec = [] 
+            
+            for i in arrange(ncomp):
+                sp_list = []
+                for j, spec in enumerate(speclist):
+                    if spec is not None:
+                        sp_list.append(spec[i][1])
+                        
+                outspec.append(esi1d.Esi1d(sp_list))   
+                        
+            #outspec = speclist
         else:
             outspec = esi1d.Esi1d(speclist)
 
