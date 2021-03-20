@@ -329,7 +329,7 @@ class Esi2d(ech2d.Ech2d):
         """ Put the extracted spectra into an Echelle1d structure """
         if cdf_method == 'modelfit':
             
-             for i, sp in enumerate(self):
+            for i, sp in enumerate(self):
                 if sp.mod0 is None:
                     pass
                 else:
@@ -337,7 +337,7 @@ class Esi2d(ech2d.Ech2d):
                     break
             outspec = [] 
             
-            for i in arrange(ncomp):
+            for i in np.arange(ncomp):
                 sp_list = []
                 for j, spec in enumerate(speclist):
                     if spec is not None:
@@ -355,7 +355,11 @@ class Esi2d(ech2d.Ech2d):
         if verbose:
             print('')
         if plot_extracted:
-            outspec.plot_all(**kwargs)
+            if cdf_method == 'modelfit':
+                for i in np.arange(ncomp):
+                    outspec[i].plot_all(**kwargs)
+            else:
+                outspec.plot_all(**kwargs)
 
         """ Return the extracted spectrum (as an Esi1d object) """
         return outspec
