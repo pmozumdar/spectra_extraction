@@ -334,16 +334,22 @@ class Spec1d(df.Data1d):
                 print('Wavelength vector size: %d' % wav.size)
                 print('Flux vector size: %d' % flux.size)
                 print(flux.shape)
-                testkeys = ['crval1', 'cd1_1']
+                testkeys = ['crval1', 'cd1_1', 'cdelt1']
                 for k in testkeys:
                     if k.upper() in hdr1.keys():
                         print('%s: %f' % (k.upper(), hdr1[k]))
                     else:
                         print('ERROR: could not find %s in header' % k.upper())
             if self.logwav:
-                wav = 10.**(hdr1['crval1'] + wav * hdr1['cd1_1'])
+                if hdr1['cdelt1']:
+                    wav = 10.**(hdr1['crval1'] + wav * hdr1['cdelt1'])
+                else:
+                    wav = 10.**(hdr1['crval1'] + wav * hdr1['cd1_1'])
             else:
-                wav = hdr1['crval1'] + wav*hdr1['cd1_1']
+                if hdr1['cdelt1']:
+                    wav = hdr1['crval1'] + wav * hdr1['cdelt1']
+                else:
+                    wav = hdr1['crval1'] + wav*hdr1['cd1_1']
             del hdu
         elif informat.lower() == 'deimos':
             hdu = pf.open(infile)
