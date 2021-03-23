@@ -1799,6 +1799,42 @@ class Spec1d(df.Data1d):
                 [print(*wvrange) for wvrange in clst_wav_range]
 
         return  clst_wav_range, wav_index
+    
+     # -----------------------------------------------------------------------
+    
+    def plot_maskedreg(self, wav_range=None, color='y', title=None, 
+                     label='masked reg', width=10.0):
+        
+        """
+        A function to plot bars over theregion going to mask.
+        """
+        if wav_range is None:
+            print("\n Error: Need to provide wavelengths of the region")
+            
+        else:
+            if title is None:
+                title = 'masked region'
+                
+            cen = np.zeros(len(wav_range))
+            wd = np.zeros(len(wav_range))
+            
+            for i, p in enumerate(wav_range):
+                
+                cen[i]= np.median(p)
+        
+                if len(p) >= width:
+                    wd[i] = len(p)
+                else:
+                    wd[i] = width 
+                    
+            plt.figure()
+            plt.plot(self.wav, self.flux)
+            plt.bar(cen, height=max(self.flux), width=wd, color=color, 
+                    label=label)
+            plt.xlabel('Wavelength')
+            plt.ylabel('Relative Flux')
+            plt.legend()
+            plt.title(title)
 
 # ===========================================================================
 
