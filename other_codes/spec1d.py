@@ -1756,6 +1756,49 @@ class Spec1d(df.Data1d):
                   (outfile, outformat))
 
     # -----------------------------------------------------------------------
+    
+    def closest_wavrange(self, wavrange=None, verbose=True):
+        """
+        This function extracts the closest wavelength range values 
+        from the wavelength vector to a given crude wavelength range.
+        """
+        
+        clst_wav_range = []
+        wav_index = []
+
+        if wavrange is None:
+            print("\nneed to provide a list of wavelength ranges.")
+
+        else:
+            for i, p in enumerate(wavrange):
+
+                wmin = abs(self.wav - p[0])
+                wmax = abs(self.wav - p[1])
+
+                """Converting the above arrays into list so that
+                   element value would be collectible given index"""
+
+                wmin_list = wmin.tolist()
+                wmax_list = wmax.tolist()
+
+                start_index = wmin_list.index(min(wmin))
+                stop_index = wmax_list.index(min(wmax))
+
+                start_val = self.wav[start_index]
+                stop_val = self.wav[stop_index]
+
+                clst_wav_range.append((start_val, stop_val))
+                wav_index.append((start_index, stop_index))
+                
+            """Print the given and closest waverange if requested """
+            
+            if verbose:
+                print("\nGiven waverange(assumed) : \n")
+                [print(*wvrange) for wvrange in wavrange]
+                print("\nClosest waverange to the given ones : \n")
+                [print(*wvrange) for wvrange in clst_wav_range]
+
+        return  clst_wav_range, wav_index
 
 # ===========================================================================
 
