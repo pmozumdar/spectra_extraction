@@ -1773,8 +1773,8 @@ class Spec1d(df.Data1d):
         else:
             for i, p in enumerate(wavrange):
 
-                wmin = abs(self.wav - p[0])
-                wmax = abs(self.wav - p[1])
+                wmin = abs(self['wav'] - p[0])
+                wmax = abs(self['wav'] - p[1])
 
                 """Converting the above arrays into list so that
                    element value would be collectible given index"""
@@ -1785,8 +1785,8 @@ class Spec1d(df.Data1d):
                 start_index = wmin_list.index(min(wmin))
                 stop_index = wmax_list.index(min(wmax))
 
-                start_val = self.wav[start_index]
-                stop_val = self.wav[stop_index]
+                start_val = self['wav'][start_index]
+                stop_val = self['wav'][stop_index]
 
                 clst_wav_range.append((start_val, stop_val))
                 wav_index.append((start_index, stop_index))
@@ -1829,8 +1829,8 @@ class Spec1d(df.Data1d):
                     wd[i] = width 
                     
             plt.figure()
-            plt.plot(self.wav, self.flux)
-            plt.bar(cen, height=max(self.flux), width=wd, color=color, 
+            plt.plot(self['wav'], self['flux'])
+            plt.bar(cen, height=max(self['flux']), width=wd, color=color, 
                     label=label)
             plt.xlabel('Wavelength')
             plt.ylabel('Relative Flux')
