@@ -1823,8 +1823,8 @@ class Spec1d(df.Data1d):
                 
                 cen[i]= np.median(p)
         
-                if len(p) >= width:
-                    wd[i] = len(p)
+                if np.diff(p) >= width:
+                    wd[i] = np.diff(p)#len(p)
                 else:
                     wd[i] = width 
                     
