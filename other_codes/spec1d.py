@@ -983,7 +983,8 @@ class Spec1d(df.Data1d):
             self.plot_atm_trans(mode=mode, ls=atmls, scale=atmscale,
                                 offset=atmoffset, fwhm=atmfwhm,
                                 modfile=atmmodfile)
-        return self.fig
+        ## this return statement here makes the plot appear again
+        #return self.fig
     # -----------------------------------------------------------------------
 
     def plot_sky(self, color='g', linestyle='-', xlabel='default',
