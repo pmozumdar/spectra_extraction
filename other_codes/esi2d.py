@@ -350,6 +350,10 @@ class Esi2d(ech2d.Ech2d):
             #outspec = speclist
         else:
             outspec = esi1d.Esi1d(speclist)
+      
+        ##Store outspec as an attribute so that can be accessed by the
+        ## function 'stitch'
+        self.outspec = outspec
 
         """
         Plot the extracted spectra
@@ -469,5 +473,10 @@ class Esi2d(ech2d.Ech2d):
                       2. 'multiply': multiply orders by the response fn (NOT
                           yet implemented)
         """
-
+        
+        if isinstance(outspec, list):
+            for i, speclist in enumerate():
+                speclist.esi_resp_corr( respfile, action=action)
+        else:
+            outspec.esi_resp_corr( respfile, action=action)
 
