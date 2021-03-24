@@ -195,6 +195,35 @@ class Ech1d(list):
 
     # ------------------------------------------------------------------------
     
+    def esi_resp_corr(self, respfile, mode='input', action='divide'):
+        """
+        Given a file containing a response curve for each order, corrects
+        the spectrum for the corresponding order by either multiplying
+        (the default) or dividing the spectrum by the response curve. The
+        version of the spectrum for each order to correct is set by the 
+        mode parameter which is by default the input spectrum. The result
+        is stored in the respcorr version of the spectrum. This function
+        just calls spec1d.resp_corr function for each order.
+        
+        Inputs:
+            respfile - A text file containing the response correction for
+                       each order
+        """
+        """First load the respfile and store response curve for each order"""
+        resp_data = loadtxt(respfile)
+        resp_curve = []
+        
+        for i, resp in enumerate(resp_data):
+            resp_curve.append(trim_zeros(resp, 'b'))
+            
+        if len(resp_curve)!= len(self):
+            print("\nmissing response curve for at least one order")
+            
+        for i, spec in enumerate(self): 
+            spec.resp_corr(resp_curve[i], mode=mode, action=action)
+            
+    # ------------------------------------------------------------------------
+
     def save_multi(self, outroot, mode='input', outformat='multitab',
                    verbose=True):
         """
