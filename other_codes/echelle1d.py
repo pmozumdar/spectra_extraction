@@ -13,7 +13,8 @@ from matplotlib import pyplot as plt
 from astropy.io import fits as pf
 from astropy.table import Table
 from specim_test.specim import specfuncs as ss
-
+from math import log10
+from scipy import interpolate
 
 # ---------------------------------------------------------------------------
 
@@ -220,7 +221,7 @@ class Ech1d(list):
             print("\nmissing response curve for at least one order")
             
         for i, spec in enumerate(self): 
-            spec.resp_corr(resp_curve[i], mode=mode, action=action)
+            spec.resp_corr(resp_curve[i], mode=mode, action=action)     
             
     # ------------------------------------------------------------------------
     
@@ -231,12 +232,39 @@ class Ech1d(list):
         stitching together the spectra from all orders in the echelle 1d object.
         If asked first do response correction for each order.
         """
-        
+        """First perform response correction if asked """
         if resp_corr:
             if respfile is None:
                 print('\nneed to provide a text file containing response curves')
             else:
                 self.esi_resp_corr(respfile, action=action)
+        
+        """Next take variance weighted average of the flux in the overlap
+           region, modify variance accordingly and stitch together all the 
+           spectra."""
+        
+        w0 = log10(self[0]['wav'][0])
+        w1 = log10(self[-1]['wav'][-1])
+        outwav = np.arange(w0, w1, logdisp)
+        outflux = np.zeros((outwav.size, len(self))) #* np.nan
+        outvar = outflux.copy()
+        
+        for i, spec in enumerate(self):
+            
+            wav = spec['wav']
+            flux = spec['flux']
+            var = spec['var']
+            lw = log10(wav)
+            mask = (outwav >= lw[0]) & (outwav <= lw[-1])
+            mod = interpolate.splrep(lw, flux, k=1)
+            outflux[mask, i] = interpolate.splev(outwav[mask], mod)
+            mod = interpolate.splrep(lw, var, k=1)
+            outvar[mask, i] = interpolate.splev(outwav[mask], mod)
+            
+        outvar[outvar == 0.] = 1.e9
+        flux = np.nansum(outflux/outvar, 1) / np.nansum(1./outvar, 1)
+        var = np.nansum(1./outvar, 1)**-1
+        self.spec1d = ss.Spec1d(wav=outwav, flux=flux, var=var, logwav=True)
     
     # ------------------------------------------------------------------------
 
