@@ -445,7 +445,8 @@ class Esi2d(ech2d.Ech2d):
 
     # --------------------------------------------------------------------
 
-    def stitch(self, respfile, method='oldham', respfunc='divide'):
+    def stitch(self, respfile=None, resp_corr=True, method='oldham', 
+               respfunc='divide', logdisp=1.65e-5):
         """
 
         This method does the two final steps needed to create a 1d spectrum:
@@ -474,9 +475,29 @@ class Esi2d(ech2d.Ech2d):
                           yet implemented)
         """
         
+        """Correct for the overlap region and stitch all spectral order"""
+        
         if isinstance(outspec, list):
-            for i, speclist in enumerate():
-                speclist.esi_resp_corr( respfile, action=action)
+            for i, speclist in enumerate(outspec):
+                speclist.stitch_to_spec1d(respfile=respfile, resp_corr=resp_corr,
+                                         action=respfunc, logdisp=logdisp)
         else:
-            outspec.esi_resp_corr( respfile, action=action)
+            outspec.stitch_to_spec1d(respfile=respfile, resp_corr=resp_corr,
+                                     action=respfunc, logdisp=logdisp)
+            
+        
+        
+         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
