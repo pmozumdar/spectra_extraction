@@ -216,12 +216,28 @@ class Ech1d(list):
         for i, resp in enumerate(resp_data):
             resp_curve.append(trim_zeros(resp, 'b'))
             
-        if len(resp_curve)!= len(self):
+        if len(resp_curve) < len(self):
             print("\nmissing response curve for at least one order")
             
         for i, spec in enumerate(self): 
             spec.resp_corr(resp_curve[i], mode=mode, action=action)
             
+    # ------------------------------------------------------------------------
+    
+    def stitch_to_spec1d(self, resp_corr=True, respfile=None, action='divide'
+                         logdisp=1.65e-5):
+        """
+        This function converts an echelle 1d object to a single spectrum by
+        stitching together the spectra from all orders in the echelle 1d object.
+        If asked first do response correction for each order.
+        """
+        
+        if resp_corr:
+            if respfile is None:
+                print('\nneed to provide a text file containing response curves')
+            else:
+                self.esi_resp_corr(respfile, action=action)
+    
     # ------------------------------------------------------------------------
 
     def save_multi(self, outroot, mode='input', outformat='multitab',
