@@ -226,9 +226,9 @@ class Esi2d(ech2d.Ech2d):
         spec.apmax = apmax / info['pixscale']
 
         """ Set the range of valid pixels for fitting the trace """
+        B = info['pixmin']
+        R = info['pixmax']
         if fitrange is None:
-            B = info['pixmin']
-            R = info['pixmax']
             fitrange = [B, R]
         else:
             fitrange = fitrange
@@ -252,7 +252,7 @@ class Esi2d(ech2d.Ech2d):
                                 fitorder=fitorder, stepsize=stepsize)
             plt.show()
         if spec.mod0 is not None:
-            spec.extract(method=method, extrange=fitrange, weight=weight, 
+            spec.extract(method=method, extrange=[B, R], weight=weight, 
                          doplot=True, verbose=True)
 
         """
@@ -446,7 +446,8 @@ class Esi2d(ech2d.Ech2d):
     # --------------------------------------------------------------------
 
     def stitch(self, respfile=None, resp_corr=True, method='oldham', 
-               respfunc='divide', logdisp=1.65e-5, doplot=True):
+               respfunc='divide', logdisp=1.65e-5, doplot=True,
+               outspec=None):
         """
 
         This method does the two final steps needed to create a 1d spectrum:
@@ -478,17 +479,17 @@ class Esi2d(ech2d.Ech2d):
         """Do response correction if required, correct for the overlap region
            and stitch all spectral orders together."""
         
-        if isinstance(outspec, list):
-            for i, speclist in enumerate(outspec):
+        if isinstance(self.outspec, list):
+            for i, speclist in enumerate(self.outspec):
                 speclist.stitch_to_spec1d(respfile=respfile, resp_corr=resp_corr,
                                          action=respfunc, logdisp=logdisp)
                 if doplot:
-                    speclist.plot()
+                    speclist.spec1d.plot()
         else:
-            outspec.stitch_to_spec1d(respfile=respfile, resp_corr=resp_corr,
+            self.outspec.stitch_to_spec1d(respfile=respfile, resp_corr=resp_corr,
                                      action=respfunc, logdisp=logdisp)
             if doplot:
-                outspec.plot()
+                outspec.spec1d.plot()
                 
     # --------------------------------------------------------------------
            
