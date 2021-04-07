@@ -341,7 +341,7 @@ class Spec2d(imf.Image):
                 print('Found %d NaNs in the two-dimensional spectrum' % nnan)
 
             """ First replace the NaNs with a temporary value """
-            self.data[nanmask] = -1 #-999
+            self.data[nanmask] = -999 #-1
 
             """
             Now find the median sky values by calling the subtract_sky_2d
@@ -362,13 +362,20 @@ class Spec2d(imf.Image):
             #    self.data[nanmask] = sk2d.T[nanmask]
             #else:
             #    self.data[nanmask] = sk2d[nanmask]
-
     # -----------------------------------------------------------------------
-    def fix_nan_var(self, verbose=False):
+    
+    def fix_nan_var(self, mask=None, verbose=False, outfile=None):
         """
         Detects NaN's and negative variances within the 2d variance spectrum
         and replaces them with very big real numbers.
         """
+        
+        if mask is not None:
+            self.vardata[mask] = 1.e9
+            if outfile is not None:
+                pf.PrimaryHDU(self.vardata).writeto(outfile)
+                print(' Wrote variance data to %s' % outfile)
+            return
         
         if self.vardata is None:
             print("\nerror : no 2d vardata is avaiable")
@@ -381,9 +388,49 @@ class Spec2d(imf.Image):
                           'spectrum' % nnan)
 
                 """ Replace the NaNs with a big value """
-                self.vardata[nanmask] = 9999
+                self.vardata[nanmask] = 1.e9
                 self.varmask = nanmask
+                print('\nminimum value in 2d var spectra : %f' %np.min(self.vardata))
+            
+            if outfile is not None:
+                pf.PrimaryHDU(self.vardata).writeto(outfile)
+                print(' Wrote variance data to %s' % outfile)
+    
     # -----------------------------------------------------------------------
+    
+    def fix_unexpected_line(self, pixrange=None, level=None, outfile=None):
+        """
+        This is a temporary solution to take care of a bad line in the second 
+        order 2d spectrum of all ESI spectra.
+        
+        Input:
+        pixrange - an array or list with range for x and y direction.
+        """
+        if pixrange is not None and level is not None:
+            data = self.data.copy()
+            flawed_data = data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]]
+            mask = np.zeros(data.shape)
+            
+            fill_val = np.median(flawed_data, axis=1)
+            fill_val = \
+                np.repeat(fill_val, flawed_data.shape[1]).reshape(flawed_data.shape)
+            m = flawed_data < level
+            flawed_data[m] = fill_val[m]
+                          
+            self.data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = \
+                                                                    flawed_data
+            mask[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = m
+            
+            if np.sum(1*mask):
+                self.fix_nan_var(mask=mask.astype(bool))
+            
+            if outfile is not None:
+                #pf.PrimaryHDU(szapped).writeto(outfile)
+                pf.PrimaryHDU(self.data).writeto(outfile)
+                print(' Wrote masked data to %s' % outfile)
+        
+    # -----------------------------------------------------------------------
+    
     ## adding a new parameter 'use_skymod' if one wants to use 'pypeit'
     ## generated sky model. By default it is 'False'.
     def subtract_sky_2d(self, outfile=None, outsky=None, use_skymod=False):
@@ -1689,9 +1736,9 @@ class Spec2d(imf.Image):
 
             """ Get the order of the polynomial to be fit """
             if isinstance(fitorder, dict) and p in fitorder.keys():
-                polyorder = int(fitorder[p])
+                polyorder1 = int(fitorder[p])
             else:
-                polyorder = polyorder
+                polyorder1 = polyorder
 
             """ Fit a polynomial to the trace parameter """
             if polyorder == -1:
@@ -1706,7 +1753,7 @@ class Spec2d(imf.Image):
                 if verbose:
                     print('Fitting polynomial of degree %d to parameter:'
                           ' %s' % (polyorder, p))
-                polypars[p] = np.polyfit(x, data, polyorder)
+                polypars[p] = np.polyfit(x, data, polyorder1)
 
         #if doplot:
             #print('Plotting centroid and width of model component 1')
@@ -2086,7 +2133,7 @@ class Spec2d(imf.Image):
     def find_and_trace(self, mod0=None, ngauss=1, bgorder=0, stepsize='default',
                        fitorder={'mean_1': 3, 'stddev_1': 4}, pixrange=None,
                        fitrange=None, doplot=True, do_subplot=True,
-                       axes=None, verbose=True, polyorder=2):
+                       axes=None, verbose=True, polyorder=3):
 
         """
         The first step in the spectroscopy reduction process.
