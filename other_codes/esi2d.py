@@ -204,7 +204,8 @@ class Esi2d(ech2d.Ech2d):
     def _extract_cdf(self, spec, info, muorder=-1, sigorder=-1,
                      apmin=-1., apmax=1., weight='gauss', normalize=False,
                      plot_traces=False, verbose=True, fitorder=None,
-                     method='modelfit', stepsize=None, fitrange=None):
+                     method='modelfit', stepsize=None, fitrange=None,
+                     extrange=None, pixrange=None, level=None):
         """
 
         Extracts the spectrum from an individual order using the
@@ -230,12 +231,16 @@ class Esi2d(ech2d.Ech2d):
         R = info['pixmax']
         if fitrange is None:
             fitrange = [B, R]
-        else:
-            fitrange = fitrange
-
+        if extrange is None:
+            extrange = [B, R]
         """ Trace and then extract the spectrum using the Spec2d methods  """
         if verbose:
             print('%s' % info['name'])
+        
+        # temporary for order 2 spectrum in current ESI data
+        if info['order'] == 2:
+            spec.fix_unexpected_line(pixrange=pixrange, level=level)
+            spec.fix_line = False
         
         if spec.mod0 is None:
             if method=='optimal':
@@ -246,13 +251,13 @@ class Esi2d(ech2d.Ech2d):
             else:
                 pass
         else:
-            #print(spec.mod0)
+            #print(spec.mod0)    
             spec.find_and_trace(mod0=spec.mod0, doplot=plot_traces,
                                 fitrange=fitrange, verbose=False,
                                 fitorder=fitorder, stepsize=stepsize)
             plt.show()
         if spec.mod0 is not None:
-            spec.extract(method=method, extrange=[B, R], weight=weight, 
+            spec.extract(method=method, extrange=extrange, weight=weight, 
                          doplot=True, verbose=True)
 
         """
@@ -269,11 +274,12 @@ class Esi2d(ech2d.Ech2d):
     def extract_all(self, method='oldham', modlist=None, apcent=0., nsig=1.0,
                     apmin=-1., apmax=1., muorder=-1, sigorder=-1,
                     normap=False, weight='gauss', plot_profiles=True,
-                    plot_traces=False, plot_extracted=True, fitorder=None,
-                    xmin=3840., xmax=10910., ymin=-0.2, ymax=5.,
+                    plot_traces=False, plot_extracted=True, fitorder_dict=None,
+                    xmin=3840., xmax=10910., ymin=-0.2, ymax=5., fitorder=None,
                     apnum=None, showfit=False, verbose=True, 
                     cdf_method='modelfit', stepsize='default', 
-                    fit_dict=None, fitrange=None, **kwargs):
+                    fit_dict=None, fitrange=None, extrange=None, pixrange=None,
+                    level=None, extrange_dict=None, **kwargs):
         """
         Goes through each of the 10 orders on the ESI spectrograph and
         extracts the spectrum via one of two procedures:
@@ -313,13 +319,21 @@ class Esi2d(ech2d.Ech2d):
                 if fit_dict is not None:
                     if info['order'] in fit_dict:
                         fitrange = fit_dict[info['order']]
-                    else:
-                        fitrange = None        
+                if extrange_dict is not None:
+                    if info['order'] in extrange_dict:
+                        extrange = extrange_dict[info['order']]
+                if fitorder_dict is not None:
+                    if info['order'] in fitorder_dict:
+                        fitorder = fitorder_dict['order']
+                    elif 'common' in fitorder_dict:
+                        fitorder = fitorder_dict['common']
                 self._extract_cdf(spec, info, plot_traces=plot_traces,
                                   muorder=muorder, sigorder=sigorder,
                                   apmin=apmin, apmax=apmax, weight=weight,
                                   fitorder=fitorder, method=cdf_method,
-                                  stepsize=stepsize, fitrange=fitrange)
+                                  stepsize=stepsize, fitrange=fitrange,
+                                  extrange=extrange, pixrange=pixrange,
+                                  level=level)
             elif method == 'oldham':
                 self._extract_oldham(spec, info, apcent, nsig, normap=normap)
             
