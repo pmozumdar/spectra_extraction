@@ -2658,6 +2658,8 @@ class Spec2d(imf.Image):
         """
         # print('*** Number of nans: %d %d %d ***' % (nnans, nnanv, nnan))
         if extrange is not None:
+            if extrange[1] < 0:
+                extrange[1] = self.npix + extrange[1] + 1
             extmin = extrange[0]
             extmax = extrange[1]
             owav = self.wavelength[extmin:extmax]
