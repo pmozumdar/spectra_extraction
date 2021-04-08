@@ -135,6 +135,7 @@ class Spec2d(imf.Image):
         self.inspec = inspec
         self.new_wav2d = None
         self.transpose = False
+        self.fix_line = True
 
         """
         Read in the data and call the superclass initialization for useful
@@ -390,7 +391,7 @@ class Spec2d(imf.Image):
                 """ Replace the NaNs with a big value """
                 self.vardata[nanmask] = 1.e9
                 self.varmask = nanmask
-                print('\nminimum value in 2d var spectra : %f' %np.min(self.vardata))
+                #print('\nminimum value in 2d var spectra : %f' %np.min(self.vardata))
             
             if outfile is not None:
                 pf.PrimaryHDU(self.vardata).writeto(outfile)
@@ -406,28 +407,29 @@ class Spec2d(imf.Image):
         Input:
         pixrange - an array or list with range for x and y direction.
         """
-        if pixrange is not None and level is not None:
-            data = self.data.copy()
-            flawed_data = data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]]
-            mask = np.zeros(data.shape)
-            
-            fill_val = np.median(flawed_data, axis=1)
-            fill_val = \
-                np.repeat(fill_val, flawed_data.shape[1]).reshape(flawed_data.shape)
-            m = flawed_data < level
-            flawed_data[m] = fill_val[m]
-                          
-            self.data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = \
-                                                                    flawed_data
-            mask[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = m
-            
-            if np.sum(1*mask):
-                self.fix_nan_var(mask=mask.astype(bool))
-            
-            if outfile is not None:
-                #pf.PrimaryHDU(szapped).writeto(outfile)
-                pf.PrimaryHDU(self.data).writeto(outfile)
-                print(' Wrote masked data to %s' % outfile)
+        if self.fix_line:
+            if pixrange is not None and level is not None:
+                data = self.data.copy()
+                flawed_data = data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]]
+                mask = np.zeros(data.shape)
+
+                fill_val = np.median(flawed_data, axis=1)
+                fill_val = \
+                    np.repeat(fill_val, flawed_data.shape[1]).reshape(flawed_data.shape)
+                m = flawed_data < level
+                flawed_data[m] = fill_val[m]
+
+                self.data[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = \
+                                                                        flawed_data
+                mask[pixrange[0]:pixrange[1], pixrange[2]:pixrange[3]] = m
+
+                if np.sum(1*mask):
+                    self.fix_nan_var(mask=mask.astype(bool))
+
+                if outfile is not None:
+                    #pf.PrimaryHDU(szapped).writeto(outfile)
+                    pf.PrimaryHDU(self.data).writeto(outfile)
+                    print(' Wrote masked data to %s' % outfile)
         
     # -----------------------------------------------------------------------
     
@@ -1752,7 +1754,7 @@ class Spec2d(imf.Image):
             else:
                 if verbose:
                     print('Fitting polynomial of degree %d to parameter:'
-                          ' %s' % (polyorder, p))
+                          ' %s' % (polyorder1, p))
                 polypars[p] = np.polyfit(x, data, polyorder1)
 
         #if doplot:
