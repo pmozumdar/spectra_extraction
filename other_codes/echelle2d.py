@@ -10,10 +10,12 @@ code that are in the keckcode repository
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import gridspec
 from astropy.io import fits as pf
 from astropy.table import Table
-from specim import imfuncs as imf
-from specim import specfuncs as ss
+from astropy.modeling import models
+from specim_test.specim import imfuncs as imf
+from specim_test.specim import specfuncs as ss
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +312,81 @@ class Ech2d(list):
         ax.xaxis.set_label_coords(0.5, -0.05)
         ax.yaxis.set_label_coords(-0.03, 0.5)
 
+    # --------------------------------------------------------------------
+    def plot_fitted_model(self, columns=3, title=None):
+        """
+        Plots, in one figure, the fitted models for all the orders provided
+        a model for that order is avaialble.
+        """
+        """First check which orders have a model to fit"""
+        order = []
+        spec_list = []
+        spec_with_mod = 0
+        for spec, info in zip(self, self.ordinfo):
+            if spec.mod0 is not None:
+                spec_list.append(spec)
+                order.append(info['order'])
+                spec_with_mod +=1
+
+        columns = columns
+        rows = (spec_with_mod // columns) + 1
+        if (spec_with_mod % columns)==0:
+            rows -= 1
+            
+        """setting up the figure and gridspec """
+        fig = plt.figure(figsize=(15,7))
+        gs = gridspec.GridSpec(rows, columns, figure=fig)
+
+        for i,spec in enumerate(spec_list):
+
+            gs_sub = gridspec.GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[i],
+                                               hspace=0, height_ratios=[3,1,3])
+            profile = spec.profile
+            mod_y = spec.mod0(profile.x)
+            diff = profile.y - mod_y
+
+            ax1 = fig.add_subplot(gs_sub[0, 0])
+            ax1.set_xticks([])
+            ax1.plot(profile.x, profile.y, color='b', linestyle='solid',
+                                   drawstyle='steps', label='Spatial profile')
+            ax1.plot(profile.x, mod_y, color='g', drawstyle='steps',
+                                                            label='model fit')
+            ax1.annotate('order:%d' %order[i], (0.05, 0.9),
+                                        xycoords='axes fraction', fontsize=12)
+            ax1.legend()
+            ax1.set_ylabel('Relative Flux')
+            
+            ax2 = fig.add_subplot(gs_sub[1, 0], sharex=ax1)
+            ax2.plot(profile.x, diff, 'r', drawstyle='steps')
+            ax2.hlines(y=0, xmin=min(profile.x), xmax=max(profile.x))
+            ax2.set_ylabel('Difference')
+            
+            ax3 = fig.add_subplot(gs_sub[2, 0])
+            ax3.plot(profile.x, profile.y, color='b', linestyle='solid',
+                                    drawstyle='steps', label='Spatial profile')
+            label_g = True
+            label_m = True
+            for i, md in enumerate(spec.mod0):
+                mod_y = md(profile.x)
+                if isinstance(md, models.Gaussian1D):
+                    if label_g:
+                        plt.plot(profile.x, mod_y, color='k',
+                                     drawstyle='steps', label='Gaussian prof.')
+                        label_g = False
+                    else:
+                        plt.plot(profile.x, mod_y, color='k', drawstyle='steps')
+                elif isinstance(md, models.Moffat1D):
+                    if label_m:
+                        plt.plot(profile.x, mod_y, color='r', drawstyle='steps',
+                                                           label='Moffat prof.')
+                        label_m = False
+                    else:
+                        plt.plot(profile.x, mod_y, color='r', drawstyle='steps')
+            ax3.legend()
+            ax3.set_xlabel('Spatial direction (pix)')
+            ax3.set_ylabel('Relative Flux')
+        plt.suptitle('Model fit to Spatial Profile', fontsize=16)    
+        plt.show()
     # --------------------------------------------------------------------
 
     def save(self, outfile, mode='input'):
