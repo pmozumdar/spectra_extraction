@@ -1399,7 +1399,7 @@ class Spec2d(imf.Image):
                     plt.plot(profile.x, mod[i](profile.x), color='r',
                                                               drawstyle='steps')
         plt.legend()
-        plt.xlabel('Spatial direction (0-indexed)')
+        plt.xlabel('Spatial direction (pix)')
         plt.ylabel('Relative Flux')
         plt.title('Individual profile component in fitted model')
         plt.show()
@@ -1468,7 +1468,7 @@ class Spec2d(imf.Image):
                     plt.plot(profile.x, mod_new[i](profile.x), color='r',
                                                               drawstyle='steps')
         plt.legend()
-        plt.xlabel('Spatial direction (0-indexed)')
+        plt.xlabel('Spatial direction (pix)')
         plt.ylabel('Relative Flux')
         plt.title('Individual profile component in fitted model')
         plt.show()
@@ -1641,6 +1641,7 @@ class Spec2d(imf.Image):
             Store the fitted parameters in the parameter table and the
             covariances in the covar list
             """
+            
             for param, val in zip(mod.param_names, mod.parameters):
                 partab[param][i] = val
             covar.append(fitinfo['param_cov'])
@@ -1941,6 +1942,7 @@ class Spec2d(imf.Image):
 
         coarsepars, covar = self.fit_slices(mod0, stepsize, ncomp=ngauss,
                                             verbose=verbose)
+        self.coarsepars = coarsepars
         if debug:
             print(coarsepars)
         if verbose:
@@ -2255,7 +2257,6 @@ class Spec2d(imf.Image):
         #print(partab)
         #print(spec.mod0)
         
-        # create models for each pixel
         for i in range(self.npix):
             #mod0 = spec.mod0
             mods=[]
@@ -2286,6 +2287,7 @@ class Spec2d(imf.Image):
                     md = m0
                 else:
                     md += m0
+                    
             cmp_mods.append(md)
             #mods.append(mod0)
 
@@ -2380,7 +2382,6 @@ class Spec2d(imf.Image):
            'param_cov' only provides covariance matrix of the amplitudes.
            We will treat the diagonal elements as the corresponding variances
            for the profile in compound model."""
-        
         if usevar:
             var_spectra = Table()
             var_list = []
