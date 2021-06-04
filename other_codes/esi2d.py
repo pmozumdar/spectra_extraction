@@ -29,7 +29,7 @@ file in the esiredux directory because it looks for this
 special function module."""
 #import special_functions as sf
 
-from cdfutils import datafuncs as df
+from cdfutils_test.cdfutils import datafuncs as df
 #from specim import specfuncs as ss
 from specim_test.specim import specfuncs as ss
 from specim_test.specim.specfuncs import echelle2d as ech2d
@@ -246,14 +246,15 @@ class Esi2d(ech2d.Ech2d):
             if method=='optimal':
                 spec.find_and_trace(doplot=plot_traces, fitorder=fitorder, 
                                     fitrange=fitrange, stepsize=stepsize,
-                                    verbose=False)#[B, R],
+                                    verbose=True)#[B, R],
                 plt.show()
             else:
-                pass
+                print(spec.mod0)
+                #pass
         else:
             #print(spec.mod0)    
             spec.find_and_trace(mod0=spec.mod0, doplot=plot_traces,
-                                fitrange=fitrange, verbose=False,
+                                fitrange=fitrange, verbose=True,
                                 fitorder=fitorder, stepsize=stepsize)
             plt.show()
         if spec.mod0 is not None:
