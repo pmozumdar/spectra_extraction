@@ -15,6 +15,7 @@ from astropy.table import Table
 from specim_test.specim import specfuncs as ss
 from math import log10
 from scipy import interpolate
+import numpy as np
 
 # ---------------------------------------------------------------------------
 
@@ -196,7 +197,8 @@ class Ech1d(list):
 
     # ------------------------------------------------------------------------
     
-    def esi_resp_corr(self, respfile, mode='input', action='divide'):
+    def esi_resp_corr(self, respfile, mode='input', action='divide',
+                      order=None):
         """
         Given a file containing a response curve for each order, corrects
         the spectrum for the corresponding order by either multiplying
@@ -209,24 +211,36 @@ class Ech1d(list):
         Inputs:
             respfile - A text file containing the response correction for
                        each order
+            order - The order of the echelle spectrum to be response
+                    corrected. By default all orders would be corrected.
+                    A list containing range of orders.
         """
         """First load the respfile and store response curve for each order"""
         resp_data = loadtxt(respfile)
         resp_curve = []
         
-        for i, resp in enumerate(resp_data):
-            resp_curve.append(trim_zeros(resp, 'b'))
+        if order is None:
+            for i, resp in enumerate(resp_data):
+                resp_curve.append(trim_zeros(resp, 'b'))
+        else:
+            for i, resp in enumerate(resp_data[order[0]-1:order[-1]]):
+                resp_curve.append(trim_zeros(resp, 'b'))
             
         if len(resp_curve) < len(self):
             print("\nmissing response curve for at least one order")
             
         for i, spec in enumerate(self): 
-            spec.resp_corr(resp_curve[i], mode=mode, action=action)     
-            
+            spec.resp_corr(resp_curve[i], mode=mode, action=action)
+        self.plot_all(fig=plt.figure(figsize=(10,7)), ax=plt.subplot(111))
+        #outspec.plot_all(fig=plt.figure(figsize=(10,7)), ax=plt.subplot(111))
+        plt.show()
+        
+        #return outspec
+
     # ------------------------------------------------------------------------
     
-    def stitch_to_spec1d(self, resp_corr=True, respfile=None, action='divide'
-                         logdisp=1.65e-5):
+    def stitch_to_spec1d(self, outspec=None, resp_corr=True, respfile=None,
+                         action='divide', logdisp=1.65e-5, order=None):#1.8e-5
         """
         This function converts an echelle 1d object to a single spectrum by
         stitching together the spectra from all orders in the echelle 1d object.
@@ -237,34 +251,45 @@ class Ech1d(list):
             if respfile is None:
                 print('\nneed to provide a text file containing response curves')
             else:
-                self.esi_resp_corr(respfile, action=action)
+                self.esi_resp_corr(respfile, action=action, order=order)
         
         """Next take variance weighted average of the flux in the overlap
            region, modify variance accordingly and stitch together all the 
-           spectra."""
+           spectrum."""
         
         w0 = log10(self[0]['wav'][0])
         w1 = log10(self[-1]['wav'][-1])
+        #w0 = log10(outspec[0]['wav'][0])
+        #w1 = log10(outspec[-1]['wav'][-1])
         outwav = np.arange(w0, w1, logdisp)
         outflux = np.zeros((outwav.size, len(self))) #* np.nan
         outvar = outflux.copy()
-        
         for i, spec in enumerate(self):
-            
+            #print('\nresponse corrected spectra before resampling')
+            #spec.plot()
+            #plt.show()
             wav = spec['wav']
             flux = spec['flux']
             var = spec['var']
-            lw = log10(wav)
+            lw = np.log10(wav)
             mask = (outwav >= lw[0]) & (outwav <= lw[-1])
             mod = interpolate.splrep(lw, flux, k=1)
             outflux[mask, i] = interpolate.splev(outwav[mask], mod)
             mod = interpolate.splrep(lw, var, k=1)
             outvar[mask, i] = interpolate.splev(outwav[mask], mod)
             
+            #ss_test = ss.Spec1d(wav=outwav[mask], flux=outflux[mask, i],
+            #                    var=outvar[mask, i], logwav=True)
+            #print('\nafter resampling')
+            #ss_test.plot()
+            #plt.show()    
         outvar[outvar == 0.] = 1.e9
         flux = np.nansum(outflux/outvar, 1) / np.nansum(1./outvar, 1)
         var = np.nansum(1./outvar, 1)**-1
-        self.spec1d = ss.Spec1d(wav=outwav, flux=flux, var=var, logwav=True)
+        self.spec1d = ss.Spec1d(wav=outwav, flux=flux, var=var, logwav=False)
+        #outspec.spec1d = ss.Spec1d(wav=outwav, flux=flux, var=var, logwav=True)
+        
+        #return outspec.spec1d
     
     # ------------------------------------------------------------------------
 
