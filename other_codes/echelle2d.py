@@ -313,7 +313,7 @@ class Ech2d(list):
         ax.yaxis.set_label_coords(-0.03, 0.5)
 
     # --------------------------------------------------------------------
-    def plot_fitted_model(self, columns=3, title=None):
+    def plot_fitted_model(self, columns=3, title=None, fig=None):
         """
         Plots, in one figure, the fitted models for all the orders provided
         a model for that order is avaialble.
@@ -334,7 +334,10 @@ class Ech2d(list):
             rows -= 1
             
         """setting up the figure and gridspec """
-        fig = plt.figure(figsize=(15,7))
+        if fig is not None:
+            fig = fig
+        else:
+            fig = plt.figure(figsize=(25, 20))
         gs = gridspec.GridSpec(rows, columns, figure=fig)
 
         for i,spec in enumerate(spec_list):
