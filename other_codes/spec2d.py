@@ -2400,10 +2400,14 @@ class Spec2d(imf.Image):
             
             for i, mod in enumerate(mod0):
                 if isinstance(mod, models.Gaussian1D):
-                    var_spectra['gaussian_%d' %i] = mod_var[i-1]
+                    var_spectra['gaussian_%d' %i] = (np.array(mod_var[i-1])*sqrt(2. * pi)
+                                                    * fitpars['stddev_%d' %i])
                     
                 elif isinstance(mod, models.Moffat1D):
-                    var_spectra['moffat_%d' %i] = mod_var[i-1]
+                    var_spectra['moffat_%d' %i] = (sqrt(pi) * np.array(mod_var[i-1]) *
+                                                   fitpars['gamma_%d' % i] * 
+                                      (gamma(fitpars['alpha_%d' % i] - 0.5) /   
+                                       gamma(fitpars['alpha_%d' % i])) )
         else:
             var_spectra = np.ones(self.npix)
         
