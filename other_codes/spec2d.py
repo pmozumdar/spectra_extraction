@@ -191,8 +191,8 @@ class Spec2d(imf.Image):
             else:
                 self.vardata = vdata
         else:
-            if hext==12:
-                in_var = pf.open(inspec)[hext+1].data[ymin:ymax, xmin:xmax]
+            if varext is not None:
+                in_var = pf.open(inspec)[varext].data[ymin:ymax, xmin:xmax]
                 vdata = 1./in_var
                 if transpose:
                     self.vardata = vdata.transpose()
@@ -342,7 +342,20 @@ class Spec2d(imf.Image):
                 print('Found %d NaNs in the two-dimensional spectrum' % nnan)
 
             """ First replace the NaNs with a temporary value """
-            self.data[nanmask] = -999 #-1
+            #self.data[nanmask] = -999 #-1
+            """fill up the nan pixels with median of the surrounding slice
+               and set the variance to a high value"""
+            for k, p in enumerate(np.transpose(np.where(nanmask==1))):
+                if self.dispaxis=='y':
+                    if p[0] ==0:
+                        reg = self.data[p[0]:p[0]+10, p[1]:p[1]+1]
+                    else:
+                        reg = self.data[p[0]-10:p[0]+10, p[1]:p[1]+1]
+                else:
+                    reg = self.data[p[0]:p[0]+1, p[1]-10:p[1]+10]
+                self.data[p[0]][p[1]] = np.nanmedian(reg)
+                
+            self.vardata[nanmask] = 1.e9
 
             """
             Now find the median sky values by calling the subtract_sky_2d
@@ -609,7 +622,7 @@ class Spec2d(imf.Image):
                         cnt1 = p
                         max_bin1 = bins1[j+1]
                     sm1 += p
-                    if sm1/tot_pix >= 0.8 :
+                    if sm1/tot_pix >= 0.9 :
                         border1 = 0.5*(bins1[j+1] + bins1[j])
                         break
                 #print(border)
@@ -618,7 +631,7 @@ class Spec2d(imf.Image):
                         cnt2 = p
                         max_bin2 = 0.5*(bins2[j+1] + bins2[j])
                     sm2 += p
-                    if sm2/tot_pix >= 0.8 :
+                    if sm2/tot_pix >= 0.9 :
                         border2 = bins2[j+1]
                         break
 
@@ -626,49 +639,51 @@ class Spec2d(imf.Image):
                 a =np.transpose(a)
 
                 if abs(border1 - max_bin1) < 50 :
-                    mp = 50    #/ abs(border1 - max_bin1)
+                    mp = 30   #/ abs(border1 - max_bin1)
                 elif abs(border1 - max_bin1) < 100 :
-                    mp = 150
+                    mp = 50
                 elif abs(border1 - max_bin1) < 300:
-                    mp = 200
+                    mp = 70
                 else:
-                    mp = 400
+                    mp = 100
 
                 for j, p in enumerate(a):
 
                     #print(sp2[p[0]][p[1]])
-                    if sp2[p[0]][p[1]] >0 :
-                        #pass 
-                        if sp1[p[0]][p[1]] > (sp2[p[0]][p[1]]+mp) :
-                            mask[k+p[0]][i+p[1]] =1 
-                    else:
-                        if sp1[p[0]][p[1]] > 3*border1 :
-                            mask[k+p[0]][i+p[1]] =1
+                    if sp1[p[0]][p[1]] > 0:
+                        if sp2[p[0]][p[1]] >0 :
+                            if sp1[p[0]][p[1]] > (sp2[p[0]][p[1]]+mp) :
+                                mask[k+p[0]][i+p[1]] =1 
+                        else:
+                            #if sp1[p[0]][p[1]] > 4*border1 :
+                            if sp1[p[0]][p[1]] > 50 :
+                                mask[k+p[0]][i+p[1]] =1
 
-        #print(mask)
-        sp_1[mask] = sp_2[mask]
+        #print(np.sum(np.sum(mask)))
+        #sp_1[mask] = sp_2[mask]
 
-        mf =  (sp_1 > 200) | (sp_1 < -100)
+        #mf =  (sp_1 > 200) | (sp_1 < -100)
 
-        for k, p in enumerate(np.transpose(np.where(mf==True))):
-            mask[p[0]][p[1]] = 1
-            reg = sp_1[p[0]-10: p[0]+10, p[1]:p[1]+1]
-            sp_1[p[0]][p[1]] = np.median(reg)
+        for k, p in enumerate(np.transpose(np.where(mask==1))):
+            #mask[p[0]][p[1]] = 1
+            #reg = sp_1[p[0]-20:p[0]+20, p[1]:p[1]+1]
+            sp_1[p[0]][p[1]] = sp_2[p[0]][p[1]] #np.median(reg)
+            #sp_1[p[0]][p[1]] = -500000
 
             #d[mask] = fill[mask] 
             #mm = m.astype('bool') | mask
-        print("\nFrom now cosmic ray rejected data will be used\n")
+        print("\nFrom now cosmic ray rejected data will be used")
         if self.dispaxis == 'x':
             self.data = sp_1.T
             self.szap_mask = mask.astype(int).T
         else:
             self.data = sp_1
             self.szap_mask = mask.astype(int)
-        
+            
         if outfile is not None:
             #pf.PrimaryHDU(szapped).writeto(outfile)
             pf.PrimaryHDU(self.data).writeto(outfile)
-            print(' Wrote szapped data to %s' % outfile)
+            print('\nWrote szapped data to %s' % outfile)
 
         #return sp_1, mask.astype(int)
     # -----------------------------------------------------------------------
@@ -721,8 +736,11 @@ class Spec2d(imf.Image):
         print("\nFrom now cosmic ray rejected data will be used\n")
         if self.dispaxis == 'y':
             self.data = skysub.T
+            self.szap_mask = mask.astype(int).T
         else:
             self.data = skysub
+            self.szap_mask = mask.astype(int)
+            
         """ Store cosmic ray rejected data """
         self['csraysub'] = imf.WcsHDU(skysub, wcsverb=False)
         
@@ -870,7 +888,8 @@ class Spec2d(imf.Image):
                 ax3.set_ylim(ymin, (ymin + 1.05 * ydiff))
 # -----------------------------------------------------------------------
 
-    def do_waverect(self, doplot=False, resamp_ord=5, outfile=None):
+    def do_waverect(self, doplot=False, resamp_ord=5, outfile=None,
+                    wavext=None):
         """
         If 2d wave image is tilted then this function can rectify for it
         by calculating a new coordinate grid in pixel numbers. Then this 
@@ -886,17 +905,22 @@ class Spec2d(imf.Image):
                 wav2d_dat = wav2d_dat.T
             #print(wav2d_dat.shape)
         else:
-            wav2d_dat = pf.open(self.inspec)[4].data
+            if wavext is None:
+                wav2d_dat = pf.open(self.inspec)[4].data
+            else:
+                wav2d_dat = pf.open(self.inspec)[wavext].data
             wav2d_dat = wav2d_dat[self.ymin:self.ymax, self.xmin:self.xmax]
             
         self.ss_data = self.data
         indata = self.data
+        vdata = self.vardata
         
         """ Set the dispersion axis direction """
         
         if self.dispaxis == "y":
             wav2d_dat = wav2d_dat.T
             indata = indata.T
+            vdata = vdata.T
             #print(wav2d_dat.shape)
             
         """Calculate the dispersion """
@@ -941,27 +965,35 @@ class Spec2d(imf.Image):
             plt.xlabel('dispersion axis')
             plt.ylabel('Angstrom')
             plt.title("Difference between maximun and minimum wavelength"\
-                      " in each spec pixel")
+                      " in each spec pixel after rectification")
         
-        """ Finally resample sky-subtracted and szapped data """
+        """ Finally resample sky-subtracted and szapped data. And also
+            vardata if available."""
         
         resamp_data = map_coordinates(indata, newcoords, order=resamp_ord,
+                                      cval=np.nan)
+        resamp_vdata = map_coordinates(vdata, newcoords, order=resamp_ord,
                                       cval=np.nan)
         
         #pf.PrimaryHDU(resamp_data.T).writeto(outfile)
         if self.dispaxis == "y":
             self.data = resamp_data.T
             self.new_wav2d = new_wav2d.T
+            self.vardata = resamp_vdata.T
         else:
             self.data = resamp_data
             self.new_wav2d = new_wav2d
+            self.vardata = resamp_vdata
         #self.data[0:-1, :] = resamp_data[0:-1, :]
             
         self.fix_nans_spec(verbose=True)
         
+        if outfile is not None:
+            pf.PrimaryHDU(self.data).writeto(outfile)
+            
         print("\nsky subtracted and cosmic ray rejected data has been"\
-              " resampled in place of the coordinateds whcih rectify"\
-              " the tilted wave image")
+              " resampled along with vardata in place of the coordinateds"\
+              " whcih rectify the tilted wave image")
 
 # ----------------------------------------------------------------------------------
 
@@ -2367,14 +2399,21 @@ class Spec2d(imf.Image):
             """
             Compress the wavelength along the spatial axis
             """
-            pwav = np.median(tmpwav, axis=self.spaceaxis)
-            for i in range(9, -1, -1):
-                if np.isnan(pwav[i]) :
-                    pwav[i] = pwav[i+1]- self.disp
+            pwav = np.nanmedian(tmpwav, axis=self.spaceaxis)
+            nan_wav_num_from_end = 0
+            nan_wav_num_from_start = 0
+            
+            while np.isnan(pwav[-1 - nan_wav_num_from_end]):
+                nan_wav_num_from_end += 1
+            
+            while np.isnan(pwav[0 + nan_wav_num_from_start]):
+                nan_wav_num_from_start += 1
                 
-            for i in range(-10, 0):
-                if np.isnan(pwav[i]):
-                    pwav[i] = pwav[i-1] + self.disp
+            for i in range(nan_wav_num_from_end, 0, -1):
+                pwav[-i] = pwav[-i-1] + self.disp
+                
+            for i in range(nan_wav_num_from_start-1, -1, -1):
+                pwav[i] = pwav[i+1] - self.disp
         else:    
             self.get_wavelength()
       
