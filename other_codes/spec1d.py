@@ -1498,8 +1498,8 @@ class Spec1d(df.Data1d):
         del waveobs, skymod
 
     # -----------------------------------------------------------------------
-
-    def resample(self, owave=None, verbose=True):
+    ### adding a new parameter to decide whether or not to resample variance
+    def resample(self, owave=None, verbose=True, resamp_var=False):
         """
         Resample the spectrum onto a new wavelength grid.
         There are two possibilities for the output wavelength vector that
@@ -1514,8 +1514,11 @@ class Spec1d(df.Data1d):
         This is just a specialized call to the Data1d.resamp method
 
         """
-
-        self.rswav, self.rsflux = self.resamp(xout=owave, verbose=verbose)
+        if resamp_var:
+            self.rswav, self.rsflux, self.rsvar = self.resamp(xout=owave,
+                                          verbose=verbose, resamp_var=True)
+        else:
+            self.rswav, self.rsflux = self.resamp(xout=owave, verbose=verbose)
 
     # -----------------------------------------------------------------------
 
@@ -1763,7 +1766,7 @@ class Spec1d(df.Data1d):
                   (outfile, outformat))
 
     # -----------------------------------------------------------------------
-    
+
     def closest_wavrange(self, wavrange=None, verbose=True):
         """
         This function extracts the closest wavelength range values 
