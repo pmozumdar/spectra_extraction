@@ -11,7 +11,7 @@ from scipy import interpolate, ndimage
 import matplotlib.pyplot as plt
 
 from astropy.io import ascii
-from astropy.table import Table
+from astropy.table import Table, vstack
 from astropy.io import fits as pf
 # from astropy.modeling.blackbody import blackbody_lambda
 
@@ -884,7 +884,7 @@ class Spec1d(df.Data1d):
              label=None, fontsize=12, rmscolor='r', rmsoffset=0, rmsls=None,
              add_atm_trans=False, atmscale=1.05, atmfwhm=15., atmoffset=0.,
              atmls='-', atmmodfile='default', usesmooth=False, verbose=True,
-             fig=None, ax=None):
+             fig=None, ax=None, var_spec=False):
         """
         Plots the spectrum
 
@@ -971,8 +971,13 @@ class Spec1d(df.Data1d):
                     rlw = 2
             else:
                 rlinestyle = '%s' % rmsls
-            self.ax1.plot(self['wav'], rms, rmscolor, linestyle=rlinestyle,
+            
+            if not var_spec:
+                self.ax1.plot(self['wav'], rms, rmscolor, linestyle=rlinestyle,
                      drawstyle=drawstyle, label='RMS', lw=rlw)
+            else:
+                self.ax1.plot(self['wav'], var, rmscolor, linestyle=rlinestyle,
+                     drawstyle=drawstyle, label='Var', lw=rlw)
 
         """ More plot labels """
         self.ax1.set_ylabel(ylabel, fontsize=fontsize)
@@ -1252,7 +1257,8 @@ class Spec1d(df.Data1d):
     def mark_lines(self, linetype, z, usesmooth=False, marktype='tick',
                    labww=20., labfs=12, tickfrac=0.05, tickfac=0.75,
                    showz=True, zstr='z', zfs=16, labloc='default',
-                   labcolor='k', namepos='top', markatm=True, fig=None):
+                   labcolor='k', namepos='top', markatm=True, fig=None,
+                   excludeline=None):
         """
         A generic routine for marking spectral lines in the plotted spectrum.
         The required linetype parameter can be either 'abs' or 'em' and will
@@ -1331,7 +1337,39 @@ class Spec1d(df.Data1d):
             return
 
         xarr = tmplines['wavelength'] * (z + 1.)
-
+        #print(xarr, tmplines)
+        
+        """
+        Mark atmospheric absorption lines if requested
+        """
+        if markatm:
+            linefmt = [('name', 'S10'), ('wavelength', float), ('label', 'S10'),
+                   ('dxlab', float), ('type', int), ('plot', bool)]
+            
+            atm = Table(np.array([
+                 ('atm A',     7600., 'atm A ',   0.0, 0, True),
+                 ('atm A',     7610., '      ',   0.0, 0, True),
+                 ('atm B',     6870., 'atm B ',   0.0, 0, True)],
+                  dtype=linefmt))
+            
+            tmplines = vstack([tmplines, atm])
+            xarr = np.append(xarr, [7600.0, 7610.0, 6870.0])
+        #print(xarr, atm)
+        """
+        Sometimes we may decide not to show some lines. In that case use
+        the parameter 'excludelines' and specify the line name. Mask out
+        those lines here.
+        """
+        if excludeline is not None:
+            m = np.ones(len(tmplines), dtype='bool')
+            
+            for i, line in enumerate(tmplines):
+                if line['name'] in excludeline:
+                    m[i] = 0
+                    
+            tmplines = tmplines[m]
+            xarr = xarr[m]
+         
         """
         Mark the location of the spectral lines with either tickmarks (default)
         or vertical dashed lines
