@@ -184,7 +184,8 @@ class Spec2d(imf.Image):
          as the data file and thus should be trimmed, transposed, etc. in the
          same way
         """
-        if 'var' in self.keys():
+        #if 'var' in self.keys():
+        if self['var'] is not None:
             vdata = self['var'].data[ymin:ymax, xmin:xmax]
             if transpose:
                 self.vardata = vdata.transpose()
@@ -354,8 +355,9 @@ class Spec2d(imf.Image):
                 else:
                     reg = self.data[p[0]:p[0]+1, p[1]-10:p[1]+10]
                 self.data[p[0]][p[1]] = np.nanmedian(reg)
-                
-            self.vardata[nanmask] = 1.e9
+             
+            if self.vardata is not None:   
+                self.vardata[nanmask] = 1.e9
 
             """
             Now find the median sky values by calling the subtract_sky_2d
@@ -639,13 +641,13 @@ class Spec2d(imf.Image):
                 a =np.transpose(a)
 
                 if abs(border1 - max_bin1) < 50 :
-                    mp = 30   #/ abs(border1 - max_bin1)
+                    mp = 100   #/ abs(border1 - max_bin1)
                 elif abs(border1 - max_bin1) < 100 :
-                    mp = 50
+                    mp = 160
                 elif abs(border1 - max_bin1) < 300:
-                    mp = 70
+                    mp = 250
                 else:
-                    mp = 100
+                    mp = 450
 
                 for j, p in enumerate(a):
 
@@ -666,7 +668,7 @@ class Spec2d(imf.Image):
 
         for k, p in enumerate(np.transpose(np.where(mask==1))):
             #mask[p[0]][p[1]] = 1
-            #reg = sp_1[p[0]-20:p[0]+20, p[1]:p[1]+1]
+            #reg = sp_1[p[0]-10:p[0]+10, p[1]:p[1]+1]
             sp_1[p[0]][p[1]] = sp_2[p[0]][p[1]] #np.median(reg)
             #sp_1[p[0]][p[1]] = -500000
 
@@ -2437,16 +2439,26 @@ class Spec2d(imf.Image):
             for column in zip(*var_list):
                 mod_var.append(column)
             
+            """If we have multiplied amplitude by a factor c, we need to
+               multiply variance by the square of the factor c. Previously 
+               this was not been done. (Implementing in Jan 6, 2022)"""
+            
             for i, mod in enumerate(mod0):
                 if isinstance(mod, models.Gaussian1D):
-                    var_spectra['gaussian_%d' %i] = (np.array(mod_var[i-1])*sqrt(2. * pi)
-                                                    * fitpars['stddev_%d' %i])
+                    #var_spectra['gaussian_%d' %i] = (np.array(mod_var[i-1])*sqrt(2. * pi)
+                    #                                * fitpars['stddev_%d' %i])
+                    var_spectra['gaussian_%d' %i] = (np.array(mod_var[i-1])*(2. * pi)
+                                                    * fitpars['stddev_%d' %i]**2)
                     
                 elif isinstance(mod, models.Moffat1D):
-                    var_spectra['moffat_%d' %i] = (sqrt(pi) * np.array(mod_var[i-1]) *
-                                                   fitpars['gamma_%d' % i] * 
+                    #var_spectra['moffat_%d' %i] = (sqrt(pi) * np.array(mod_var[i-1]) *
+                    #                               fitpars['gamma_%d' % i] * 
+                    #                  (gamma(fitpars['alpha_%d' % i] - 0.5) /   
+                    #                   gamma(fitpars['alpha_%d' % i])) )
+                    var_spectra['moffat_%d' %i] = (pi * np.array(mod_var[i-1]) *
+                                                   (fitpars['gamma_%d' % i] * 
                                       (gamma(fitpars['alpha_%d' % i] - 0.5) /   
-                                       gamma(fitpars['alpha_%d' % i])) )
+                                       gamma(fitpars['alpha_%d' % i])))**2 )
         else:
             var_spectra = np.ones(self.npix)
         
