@@ -136,3 +136,4 @@ keckcode_test/
 #data files
 *.fits
 *.txt
+*.pdf
